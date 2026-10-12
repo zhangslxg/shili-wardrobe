@@ -73,6 +73,25 @@
       });
     });
   }
+  function getMeta(k) {
+    return store('meta').then(function (s) {
+      return new Promise(function (res, rej) {
+        var r = s.get(k);
+        r.onsuccess = function () { res(r.result ? r.result.v : null); };
+        r.onerror = function () { rej(r.error); };
+      });
+    });
+  }
+  function putMeta(k, v) {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('meta', 'readwrite');
+        tx.objectStore('meta').put({ k: k, v: v });
+        tx.oncomplete = res;
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
 
   /* ---------------- 状态 ---------------- */
   var state = {
@@ -136,7 +155,16 @@
     else { showView('main'); }
   }
   window.addEventListener('popstate', function () {
-    if (state.view === 'detail' || state.view === 'data') { showView('main'); }
+    var s = history.state || {};
+    if (sl.open) {
+      if (s.sl === 1 && sl.layer === 'browser') { slToWall(); return; }  /* 浏览层 → 回风格墙 */
+      if (!s.sl) { closeStyleLib(true); return; }                       /* 库级 → 关库 */
+      /* s.sl === 2（风格浏览态）：穿透到下面的视图处理（如详情页返回） */
+    }
+    if (state.view === 'detail' || state.view === 'data') {
+      /* 店主模式下详情返回应回数据管理页，而不是顾客主界面 */
+      showView(isAdminMode() ? 'data' : 'main');
+    }
   });
 
   /* ---------------- 双入口：顾客端（默认）/ 店主端（#/admin） ----------------
@@ -152,6 +180,7 @@
     var wasAdmin = document.body.classList.contains('mode-admin');
     applyMode();
     if (isAdminMode()) {
+      if (sl.open) closeStyleLib(true);   /* 切店主模式先收掉风格库，避免盖住数据页 */
       if (state.view !== 'data') openView('data');        // 切入店主模式 → 直达数据管理
     } else if (wasAdmin && state.view === 'data') {
       showView('main');                                    // 退出店主模式 → 回顾客主界面
@@ -213,16 +242,19 @@
     }).join('');
 
     if (state.active >= state.categories.length) state.active = 0;
+    state.active = 0;   /* 数据变化后回到第一个分类，chip 与滚动位置保持同步 */
     pager.scrollLeft = state.active * pager.clientWidth;
   }
 
   function cardHTML(it) {
+    /* 占位符必须在 img 之前：两者都是 absolute，后者绘制在上层，
+       图片加载失败时 img-err 隐藏 img，占位符才露出作为兜底 */
     var img = it.image
-      ? '<img loading="lazy" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
+      ? '<img draggable="false" loading="lazy" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
       : '';
     var sizes = (it.sizes || []).slice(0, 3).map(function (s) { return '<i>' + esc(s) + '</i>'; }).join('');
     return '<button class="card" data-id="' + escAttr(it.id) + '">' +
-      '<div class="card-img">' + img + placeholder(it) + '</div>' +
+      '<div class="card-img">' + placeholder(it) + img + '</div>' +
       '<div class="card-body">' +
         '<div class="card-name">' + esc(it.name) + '</div>' +
         '<div class="card-row">' + sizes + '</div>' +
@@ -230,7 +262,254 @@
     '</button>';
   }
 
-  /* ---------------- 翻页交互 ---------------- */
+  /* ---------------- 拍照风格库（顾客端沉浸浏览） ----------------
+     打开：主界面顶栏按钮 / 屏幕左右边缘横滑（边缘手势不与分类滚动冲突）
+     两层：风格墙（分类封面大卡横滑）→ 风格全屏浏览（逐套服装横滑）
+     历史栈：开库 push{sl:1} → 进风格 push{sl:2}；Android 返回键逐层退出；
+             下滑手势等同"返回上一层"，同样走 history.back() 单一出口。   */
+  var SL_EDGE = 26;          /* 边缘手势判定区宽度 px */
+  var SL_OPEN_DX = 44;       /* 开库手势横向阈值 px */
+  var SL_NAV_RATIO = 0.2;    /* 浏览翻页阈值 = 屏宽 × 此比例 */
+  var SL_CLOSE_DY = 96;      /* 下滑"返回上一层"阈值 px */
+  var SL_TAP_SLOP = 8;       /* 单击判定位移 px */
+
+  var sl = { open: false, layer: 'wall', styleId: null, items: [], index: 0 };
+
+  function slCounts() { return counts(); }
+  function slCats() {
+    var cnt = slCounts();
+    return state.categories.filter(function (c) { return cnt[c.id] > 0; });
+  }
+  function slStyleItems(catId) {
+    return state.items.filter(function (it) { return it.categoryId === catId; }).sort(sortBySort);
+  }
+
+  /* 通用横滑器：跟手位移 + 阈值翻页 + 纵向下滑 + 单击。
+     preview.html 单图查看器同款手势，已验证流畅，此处泛化复用。 */
+  function makeSwiper(o) {
+    var index = 0;
+    var dragging = false, decided = false, horizontal = false, vertical = false;
+    var startX = 0, startY = 0, startT = 0, dx = 0, downTarget = null;
+    function total() { return typeof o.count === 'function' ? o.count() : 0; }
+    function render(animate) {
+      o.track.classList.toggle('pv-anim', animate !== false);
+      o.track.style.transform = 'translateX(' + (-index * 100) + '%)';
+    }
+    function go(i, silent) {
+      var n = total();
+      index = Math.max(0, Math.min(n - 1, i));
+      render(true);
+      if (!silent && o.onIndex) o.onIndex(index);
+    }
+    o.stage.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true; decided = false; horizontal = false; vertical = false;
+      startX = e.clientX; startY = e.clientY; startT = Date.now(); dx = 0;
+      downTarget = e.target;   /* 必须在 setPointerCapture 之前取：捕获会重定靶后续事件 */
+      o.track.classList.remove('pv-anim');
+      try { o.stage.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    o.stage.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var mx = e.clientX - startX, my = e.clientY - startY;
+      if (!decided) {
+        if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+        decided = true;
+        horizontal = Math.abs(mx) > Math.abs(my);
+        vertical = !horizontal && my > 0;
+      }
+      if (horizontal) {
+        e.preventDefault();
+        dx = mx;
+        if ((index === 0 && dx > 0) || (index === total() - 1 && dx < 0)) dx *= 0.35;
+        o.track.style.transform = 'translateX(calc(' + (-index * 100) + '% + ' + dx + 'px))';
+      } else if (vertical && my > SL_CLOSE_DY) {
+        dragging = false;                       /* 下滑触发一次即交棒给上层 */
+        if (o.onSwipeDown) o.onSwipeDown();
+        render(true);
+      }
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      var threshold = Math.min(120, o.stage.clientWidth * SL_NAV_RATIO);
+      if (horizontal && Math.abs(dx) > threshold) {
+        go(index + (dx < 0 ? 1 : -1));
+      } else if (!decided && Date.now() - startT < 300) {
+        if (o.onTap) o.onTap(downTarget);    /* 原地轻点：带原始目标（捕获已重定靶 click） */
+      } else {
+        render(true);                          /* 未过阈值：回弹 */
+      }
+      dx = 0; downTarget = null;
+    }
+    o.stage.addEventListener('pointerup', endDrag);
+    o.stage.addEventListener('pointercancel', endDrag);
+    return {
+      go: go,
+      render: render,
+      reset: function () { index = 0; dragging = false; render(false); },
+      get index() { return index; }
+    };
+  }
+
+  /* ---- 风格墙 ---- */
+  var wallSwiper = null;
+  function initSlSwipers() {
+    wallSwiper = makeSwiper({
+      stage: $('#sl-wall-stage'),
+      track: $('#sl-wall-track'),
+      count: function () { return $('#sl-wall-track').children.length; },
+      onSwipeDown: function () { closeStyleLib(false); },
+      /* 点卡进入：pointerdown 时捕获尚未生效，downTarget 是真实被点的元素 */
+      onTap: function (t) {
+        var card = t && t.closest ? t.closest('.sl-wall-slide') : null;
+        if (!card) return;
+        var catId = card.dataset.cat;
+        if (!catId) { toast('新风格筹备中，敬请期待'); return; }
+        openBrowser(catId);   /* openBrowser 内部 push {sl:2}，此处不重复压栈 */
+      }
+    });
+    browserSwiper = makeSwiper({
+      stage: $('#sl-stage'),
+      track: $('#sl-track'),
+      count: function () { return sl.items.length; },
+      onIndex: function (i) { updateBrowserChrome(i); },
+      onSwipeDown: function () { slBackWall(); },
+      onTap: function () { $('#sl-browser').classList.toggle('sl-immersive'); }
+    });
+  }
+  function renderStyleWall() {
+    var cats = slCats();
+    var track = $('#sl-wall-track');    var html = cats.map(function (c) {
+      var its = slStyleItems(c.id);
+      var cover = its[0] && its[0].image ? its[0].image : '';
+      var img = cover
+        ? '<img draggable="false" src="' + escAttr(cover) + '" alt="" onerror="this.classList.add(\'img-err\')">'
+        : '';
+      return '<div class="sl-wall-slide" data-cat="' + escAttr(c.id) + '">' +
+        '<div class="sl-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
+        '<div class="sl-wall-body">' +
+          '<div class="sl-wall-name">' + esc(c.name) + '</div>' +
+          '<div class="sl-wall-sub">' + its.length + ' 套' + (c.desc ? ' · ' + esc(c.desc) : '') + '</div>' +
+          '<span class="sl-wall-go">进入浏览</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    /* 末尾固定一张"筹备中"卡：风格少时墙不空，也提示店主可扩展 */
+    html += '<div class="sl-wall-slide sl-wall-soon" data-cat="">' +
+      '<div class="sl-soon-card">' +
+        '<div class="sl-soon-ic">?</div>' +
+        '<div class="sl-soon-t">更多拍照风格筹备中</div>' +
+        '<div class="sl-soon-s">店主在数据管理页新增分类后，这里会自动出现新风格</div>' +
+      '</div>' +
+    '</div>';
+    track.innerHTML = html;
+    $('#sl-wall-count').textContent = cats.length ? cats.length + ' 个风格' : '';
+    wallSwiper.reset();   /* swiper 只初始化一次（bindStyleLibEdge），此处仅重置位置 */
+  }
+
+  /* ---- 风格全屏浏览 ---- */
+  var browserSwiper = null;
+  function openBrowser(catId) {
+    var cat = state.categories.find(function (c) { return c.id === catId; });
+    var items = slStyleItems(catId);
+    if (!cat || !items.length) return;
+    sl.styleId = catId; sl.items = items; sl.index = 0; sl.layer = 'browser';
+    $('#sl-track').innerHTML = items.map(function (it) {
+      /* draggable="false"：否则在图上起拖会触发 Chrome 原生图片拖拽，吞掉后续 pointermove */
+      var img = it.image
+        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
+        : '';
+      return '<div class="sl-slide" data-id="' + escAttr(it.id) + '">' + placeholder(it) + img + '</div>';
+    }).join('');
+    $('#sl-browser-title').textContent = cat.name;
+    $('#sl-dots').innerHTML = items.map(function (_, i) {
+      return '<i class="sl-dot' + (i === 0 ? ' on' : '') + '" data-i="' + i + '"></i>';
+    }).join('');
+    browserSwiper.reset();   /* swiper 只初始化一次（bindStyleLibEdge），此处仅重置位置 */
+    updateBrowserChrome(0);
+    $('#sl-browser').classList.add('on');
+    try { history.pushState({ sl: 2 }, ''); } catch (e) {}
+  }
+  function updateBrowserChrome(i) {
+    var n = sl.items.length;
+    sl.index = i;
+    var it = sl.items[i];
+    if (!it) return;
+    $('#sl-count').textContent = (i + 1) + ' / ' + n;
+    $('#sl-name').textContent = it.name;
+    var meta = '';
+    (it.colors || []).forEach(function (c) {
+      meta += '<span class="meta-chip"><i class="dot" style="background:' + (isHexColor(c) ? escAttr(c) : 'var(--primary)') + '"></i>' + esc(c) + '</span>';
+    });
+    (it.tags || []).forEach(function (t) { meta += '<span class="meta-chip tag">' + esc(t) + '</span>'; });
+    $('#sl-meta').innerHTML = meta;
+    $$('#sl-dots .sl-dot').forEach(function (d, j) { d.classList.toggle('on', j === i); });
+  }
+  function slToWall() {
+    sl.layer = 'wall';
+    $('#sl-browser').classList.remove('on');
+    $('#sl-browser').classList.remove('sl-immersive');
+    if (wallSwiper) wallSwiper.render(true);
+  }
+
+  /* ---- 开库 / 关库（历史栈单一出口） ---- */
+  function slBackWall() {
+    /* 浏览层 → 风格墙：优先用返回键消费 {sl:2}，保持栈一致；无栈环境直接切层 */
+    if (history.state && history.state.sl === 2) {
+      try { history.back(); return; } catch (e) {}
+    }
+    slToWall();
+  }
+  function openStyleLib() {
+    if (sl.open) return;
+    sl.open = true; sl.layer = 'wall';
+    renderStyleWall();
+    $('#stylelib').classList.add('open');
+    $('#stylelib').setAttribute('aria-hidden', 'false');
+    try { history.pushState({ sl: 1 }, ''); } catch (e) {}
+  }
+  function closeStyleLib(fromPop) {
+    if (!sl.open) return;
+    sl.open = false;
+    $('#stylelib').classList.remove('open');
+    $('#stylelib').setAttribute('aria-hidden', 'true');
+    $('#sl-browser').classList.remove('on');
+    $('#sl-browser').classList.remove('sl-immersive');
+    if (!fromPop && history.state && history.state.sl) {
+      try { history.back(); } catch (e) {}   /* 消费掉开库时压入的 state，栈保持干净 */
+    }
+  }
+
+  /* 主界面边缘横滑开库：左缘右滑 / 右缘左滑均可（移动端边缘手势习惯） */
+  function bindStyleLibEdge() {
+    /* 两个滑动手势器只创建一次：重复创建会在同一 stage 上叠加监听器，
+       导致一次点击触发多次 openBrowser、历史栈被重复压栈 */
+    initSlSwipers();
+    var pager = $('#pager');
+    var edge = 0, startX = 0, startY = 0, tracking = false;
+    pager.addEventListener('pointerdown', function (e) {
+      var r = pager.getBoundingClientRect();
+      var x = e.clientX - r.left;
+      edge = x < SL_EDGE ? -1 : (x > r.width - SL_EDGE ? 1 : 0);
+      startX = e.clientX; startY = e.clientY; tracking = edge !== 0;
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (!tracking) return;
+      var mx = e.clientX - startX, my = e.clientY - startY;
+      if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+      if (Math.abs(mx) <= Math.abs(my)) return;          /* 纵向让位给页面滚动 */
+      if ((edge === -1 && mx > SL_OPEN_DX) || (edge === 1 && mx < -SL_OPEN_DX)) {
+        tracking = false;
+        openStyleLib();
+      }
+    });
+    window.addEventListener('pointerup', function () { tracking = false; });
+    window.addEventListener('pointercancel', function () { tracking = false; });
+    $('#btn-stylelib').addEventListener('click', openStyleLib);
+    /* 风格墙点卡进入逻辑在 wallSwiper.onTap 内完成（setPointerCapture 会重定靶
+       click 事件到 stage，因此不能再用 stage 级 click 委托，详见 makeSwiper） */
+  }
   var scrollT;
   function bindPager() {
     var pager = $('#pager'), strip = $('#cat-strip');
@@ -269,8 +548,8 @@
     var cat = state.categories.find(function (c) { return c.id === it.categoryId; });
     $('#detail-cat').textContent = cat ? cat.name : '未分类';
     $('#detail-img').innerHTML =
-      (it.image ? '<img src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">' : '') +
-      placeholder(it);
+      placeholder(it) +
+      (it.image ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">' : '');
     $('#detail-name').textContent = it.name;
     var meta = '';
     (it.colors || []).forEach(function (c) {
@@ -360,7 +639,7 @@
     var r = normalizeImport(obj);
     if (r.errors.length) {
       if (!silent) showImportMsg('err', '导入失败，请修正以下问题：', r.errors);
-      return;
+      return Promise.resolve();
     }
     var done = function () {
       return (state.mode === 'replace' ? clearStore('categories').then(function () { return clearStore('items'); }) : Promise.resolve())
@@ -375,24 +654,35 @@
           toast(msg);
         });
     };
-    done().catch(function (e) { if (!silent) showImportMsg('err', '写入数据库失败：' + e); });
+    return done().catch(function (e) { if (!silent) showImportMsg('err', '写入数据库失败：' + e); });
   }
 
-  /* ---------------- 在线 catalog 自动加载（扫码方案专用） ----------------
-     客人扫码打开自己手机时本地库是空的，启动时自动拉取店里统一的
-     catalog.json 并导入；店主无需逐台设备录入，换手机也不用重新导入。 */
-  function loadCatalogIfEmpty() {
-    if (state.categories.length || state.items.length) return Promise.resolve();
+  /* ---------------- 在线 catalog 同步（扫码方案专用） ----------------
+     旧逻辑只在"本机为空"时拉取，导致老客人二次来访永远停在旧数据。
+     现逻辑：每次启动都拉取 catalog.json，按 version 判断是否需要同步——
+        · 本机为空            → 直接导入（客人扫码即有内容）
+        · catalog version 更新 → 合并导入（同 ID 覆盖、新 ID 追加、本机独有保留）
+        · version 未变或断网   → 不动本机数据
+     version 由店主「导出当前数据」时写为时间戳，天然单调递增。        */
+  function syncCatalog() {
     return fetch('catalog.json', { cache: 'no-cache' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (data) {
-        /* 合并模式拉取，绝不覆盖客人本机已有数据 */
-        var prevMode = state.mode;
-        state.mode = 'merge';
-        doImport(data, true);
-        state.mode = prevMode;
+        var remoteV = (data && typeof data.version === 'number') ? data.version : 0;
+        var isEmpty = !state.categories.length && !state.items.length;
+        if (!isEmpty && remoteV <= 0) return;               // catalog 没带版本号且本机有数据：不动
+        return getMeta('catalogVersion').then(function (localV) {
+          localV = typeof localV === 'number' ? localV : 0;
+          if (!isEmpty && remoteV <= localV) return;        // 已是最新
+          var prevMode = state.mode;
+          state.mode = 'merge';                             // 同步一律合并，绝不覆盖本机数据
+          return doImport(data, true).then(function () {
+            state.mode = prevMode;
+            return putMeta('catalogVersion', remoteV);
+          });
+        });
       })
-      .catch(function () { /* 无 catalog 或加载失败：保持空态，走手动导入流程 */ });
+      .catch(function () { /* 无 catalog / 断网 / 解析失败：保持现状，走手动导入流程 */ });
   }
 
   function readFile(file) {
@@ -550,6 +840,9 @@
       if (!b) return;
       var act = b.dataset.act;
       if (act === 'open-data') { openView('data'); }
+      else if (act === 'sl-close') { closeStyleLib(false); }
+      else if (act === 'sl-back-wall') { slBackWall(); }
+      else if (act === 'sl-detail') { var cur = sl.items[sl.index]; if (cur) openDetail(cur.id); }
       else if (act === 'back') { closeView(); }
       else if (act === 'dl-template') {
         download('wardrobe-template.json', { version: 1, categories: [], items: [] });
@@ -557,7 +850,7 @@
       }
       else if (act === 'dl-data') {
         download('wardrobe-backup-' + new Date().toISOString().slice(0, 10) + '.json', {
-          version: 1,
+          version: Date.now(),   /* 时间戳版本号：客人端只认更大的版本，保证更新必达 */
           exportedAt: new Date().toISOString(),
           categories: state.categories,
           items: state.items
@@ -638,13 +931,14 @@
   function init() {
     bindPager();
     bindActions();
+    bindStyleLibEdge();
     renderFmtExample();
     applyMode();
     reload().then(function () {
       renderMain();
       renderStats();
       renderImgCatSelect();
-      return loadCatalogIfEmpty();
+      return syncCatalog();
     });
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () {});

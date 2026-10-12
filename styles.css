@@ -42,6 +42,8 @@ img{display:block}
   background:var(--bg);
 }
 .screen.active{display:flex}
+/* 详情页盖住风格库（风格库 z-index:40）：从风格浏览进详情、返回后露出浏览层 */
+#detail.active{z-index:50}
 @media (min-width:560px){
   body{background:
     radial-gradient(60% 40% at 50% 0%, #1A1230 0%, transparent 70%),
@@ -344,3 +346,151 @@ body:not(.mode-admin) .mode-chip{display:none}
   opacity:0;pointer-events:none;transition:all .25s;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- 拍照风格库（顾客端沉浸浏览） ---------- */
+/* 覆盖层：iOS sheet 式缩放淡入，不打断底层主界面状态 */
+.stylelib{
+  position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;
+  background:var(--bg);
+  transform:scale(.94);opacity:0;pointer-events:none;
+  transition:transform .3s cubic-bezier(.32,.72,.35,1),opacity .28s;
+}
+.stylelib.open{transform:none;opacity:1;pointer-events:auto}
+
+/* 第一层：风格墙 */
+.sl-wall{flex:1;display:flex;flex-direction:column;min-height:0}
+.sl-wall-stage{
+  flex:1;position:relative;overflow:hidden;
+  touch-action:none;-webkit-user-select:none;user-select:none;
+}
+.sl-wall-track{display:flex;height:100%;will-change:transform}
+.sl-wall-track.pv-anim{transition:transform .28s cubic-bezier(.22,.61,.36,1)}
+.sl-wall-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;padding:4px 16px 0}
+.sl-cover{
+  flex:1;min-height:0;position:relative;
+  border-radius:20px;overflow:hidden;
+  background:var(--surface-2);border:1px solid var(--outline);
+}
+.sl-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sl-wall-body{flex:0 0 auto;padding:16px 4px 0}
+.sl-wall-name{font-size:20px;font-weight:700;letter-spacing:.5px}
+.sl-wall-sub{font-size:13px;color:var(--text-2);margin-top:6px;line-height:1.6}
+.sl-wall-go{
+  margin-top:14px;display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:500;color:#fff;
+  background:linear-gradient(150deg,var(--primary),var(--primary-3));
+  border-radius:999px;padding:9px 18px;
+  box-shadow:0 6px 20px rgba(139,92,246,.35);
+}
+.sl-wall-go::after{content:"›";font-size:16px;line-height:1}
+.sl-wall-count{flex:0 0 auto;font-size:12px;color:var(--text-3);letter-spacing:1px}
+.sl-wall-tip{
+  flex:0 0 auto;text-align:center;
+  font-size:11.5px;color:var(--text-3);line-height:1.8;
+  padding:12px 16px calc(14px + var(--safe-b));
+}
+.sl-wall-soon .sl-soon-card{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;text-align:center;
+  border:1.5px dashed var(--outline);border-radius:20px;
+  margin-bottom:14px;padding:24px;
+}
+.sl-soon-ic{
+  width:52px;height:52px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:700;color:var(--primary-2);
+  background:var(--surface-2);border:1px solid var(--outline);
+}
+.sl-soon-t{font-size:15px;font-weight:600;color:var(--text-2)}
+.sl-soon-s{font-size:12px;color:var(--text-3);line-height:1.7;max-width:260px}
+
+/* 第二层：风格全屏浏览（从风格墙上移淡入） */
+.sl-browser{
+  position:absolute;inset:0;z-index:2;
+  display:flex;flex-direction:column;background:var(--bg);
+  transform:translateY(16px);opacity:0;pointer-events:none;
+  transition:transform .3s cubic-bezier(.32,.72,.35,1),opacity .26s;
+}
+.sl-browser.on{transform:none;opacity:1;pointer-events:auto}
+.sl-stage{
+  flex:1;position:relative;overflow:hidden;
+  touch-action:none;-webkit-user-select:none;user-select:none;
+}
+.sl-track{display:flex;height:100%;will-change:transform}
+.sl-track.pv-anim{transition:transform .28s cubic-bezier(.22,.61,.36,1)}
+.sl-slide{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px}
+/* 原始比例自适应：max 双向约束 + auto，不变形不裁切；
+   position:relative+z-index 确保照片绘制在 .ph 占位层之上 */
+.sl-slide img{
+  position:relative;z-index:1;
+  max-width:100%;max-height:100%;width:auto;height:auto;display:block;
+  background:var(--surface-2);border-radius:14px;
+}
+.sl-count{
+  flex:0 0 auto;font-size:13px;color:var(--text-2);
+  letter-spacing:1px;font-variant-numeric:tabular-nums;
+}
+.sl-dots{
+  position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
+  display:flex;gap:6px;transition:opacity .2s;
+}
+.sl-dot{width:6px;height:6px;border-radius:50%;background:var(--outline)}
+.sl-dot.on{background:var(--primary-2)}
+.sl-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;
+  padding:12px 16px calc(14px + var(--safe-b));
+  border-top:1px solid var(--outline);
+}
+.sl-info{flex:1;min-width:0}
+.sl-name{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sl-detail-btn{flex:0 0 auto;width:auto;padding:0 20px;height:46px}
+/* 单击图片进/出沉浸模式：隐藏顶栏、底栏与圆点 */
+.sl-chrome{transition:opacity .2s}
+.sl-browser.sl-immersive .sl-chrome{opacity:0;pointer-events:none}
+.sl-browser.sl-immersive .sl-dots{opacity:0}
+/* 系统降低动效时全部过渡直出 */
+@media (prefers-reduced-motion:reduce){
+  .stylelib,.sl-browser,.sl-wall-track,.sl-track,.sl-chrome,.sl-dots{transition:none}
+}
+/* ---------- 快速预览页（preview.html，开发用） ---------- */
+/* 单图查看：整页一张，左右滑动 / 拖拽 / 方向键 / 箭头按钮切换 */
+.pv-stage{
+  flex:1;position:relative;overflow:hidden;
+  touch-action:none; /* 翻页手势完全交给 JS，禁止浏览器原生滚动手势 */
+  -webkit-user-select:none;user-select:none;
+}
+.pv-track{display:flex;height:100%;will-change:transform}
+.pv-track.pv-anim{transition:transform .28s cubic-bezier(.22,.61,.36,1)}
+.pv-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;padding:12px 12px 0}
+.pv-slide .pv-imgwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+/* 原始比例自适应：max 双向约束 + width/height:auto，宽高比不变，不裁剪、不拉伸 */
+.pv-slide img{
+  max-width:100%;max-height:100%;width:auto;height:auto;display:block;
+  background:var(--surface-2);border-radius:12px;
+}
+.pv-slide figcaption{
+  flex:0 0 auto;text-align:center;
+  font-size:11.5px;color:var(--text-3);letter-spacing:.3px;
+  padding:10px 4px calc(10px + var(--safe-b));
+}
+/* 左右箭头按钮：复用 .iconbtn 基底，叠加快照风格定位 */
+.pv-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(20,17,31,.82);backdrop-filter:blur(8px);opacity:.85;
+}
+.pv-nav:active{transform:translateY(-50%) scale(.9)}
+.pv-nav[disabled]{opacity:.25;pointer-events:none}
+.pv-prev{left:12px}
+.pv-next{right:12px}
+.pv-count{
+  flex:0 0 auto;font-size:13px;color:var(--text-2);
+  letter-spacing:1px;font-variant-numeric:tabular-nums;
+}
+.pv-bar{flex:0 0 auto;padding:10px 16px calc(14px + var(--safe-b));border-top:1px solid var(--outline)}
+.pv-note{font-size:12px;color:var(--text-3);line-height:1.7}
+.pv-note code{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;
+  color:var(--primary-2);background:var(--surface-2);
+  border:1px solid var(--outline);border-radius:6px;padding:1px 6px;
+}

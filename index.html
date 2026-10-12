@@ -10,6 +10,7 @@
 <title>衣橱 · 轻选衣</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -42,6 +43,9 @@
       <span class="brand-name">衣橱</span>
       <span class="mode-chip" id="mode-chip">店主预览中</span>
     </div>
+    <button class="iconbtn" id="btn-stylelib" aria-label="拍照风格库">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
+    </button>
     <button class="iconbtn" id="btn-admin" data-act="open-data" aria-label="数据管理">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <ellipse cx="12" cy="5.5" rx="7.5" ry="3"/>
@@ -141,6 +145,46 @@
     </div>
 
     <p class="foot-note">本应用不请求任何外部服务，数据仅存储于本机浏览器。<br>技术栈：HTML + CSS + JavaScript + IndexedDB，全部免费开源。</p>
+  </div>
+</section>
+
+<!-- ============ 拍照风格库（顾客端沉浸浏览：边缘横滑或顶栏按钮打开） ============ -->
+<section id="stylelib" class="stylelib" aria-hidden="true">
+  <!-- 第一层：风格墙（每个拍照风格一张封面大卡，左右滑动浏览） -->
+  <div class="sl-wall">
+    <header class="topbar">
+      <button class="iconbtn" data-act="sl-close" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="topbar-title">拍照风格库</span>
+      <span class="sl-wall-count" id="sl-wall-count"></span>
+    </header>
+    <div class="sl-wall-stage" id="sl-wall-stage">
+      <div class="sl-wall-track" id="sl-wall-track"></div>
+    </div>
+    <p class="sl-wall-tip">左右滑动浏览风格 · 点开看该风格全部服装<br>下滑或点左上角返回主界面</p>
+  </div>
+
+  <!-- 第二层：风格全屏浏览（逐套服装左右滑，顶部/底部信息栏） -->
+  <div class="sl-browser" id="sl-browser">
+    <header class="topbar sl-chrome">
+      <button class="iconbtn" data-act="sl-back-wall" aria-label="返回风格墙">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="topbar-title" id="sl-browser-title">风格</span>
+      <span class="sl-count" id="sl-count">1 / 1</span>
+    </header>
+    <div class="sl-stage" id="sl-stage">
+      <div class="sl-track" id="sl-track"></div>
+      <div class="sl-dots" id="sl-dots"></div>
+    </div>
+    <footer class="sl-bar sl-chrome">
+      <div class="sl-info">
+        <div class="sl-name" id="sl-name"></div>
+        <div class="sl-meta" id="sl-meta"></div>
+      </div>
+      <button class="btn btn-primary sl-detail-btn" data-act="sl-detail">查看详情</button>
+    </footer>
   </div>
 </section>
 
