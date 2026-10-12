@@ -1,0 +1,8 @@
+# 本地打印物 / 随部署地址变化的产物，不属于站点资产
+店铺二维码.png
+店铺二维码-https.png
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+desktop.ini
