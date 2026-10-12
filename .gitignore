@@ -6,3 +6,6 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 本地一键脚本（不进仓库、不上网站）
+*.bat
