@@ -1,12 +1,16 @@
 /* ============================================================
    石榴照相馆 · 选衣 Service Worker — 零外部请求
    预缓存全部静态资源；catalog.json 网络优先；导航请求断网回退离线提示页
-   v11 变更：
-     · 数据管理页新增「衣服清单」：单件衣服可改名 / 换图 / 移到别的风格 / 删除
-     · index.html / styles.css / app.js 均有改动，提升缓存版本号确保客人端更新生效
+   v12 变更：
+     · 预缓存改为「逐个 add」，单个文件失败不再让整批缓存一起失效
+       （addAll 是原子的：清单里只要有一个 404，整批都不写入且不报错）
+     · catalog.json 断网且无缓存时返回空 JSON，不再误返回 HTML
+       （返回 HTML 会让调用方 r.json() 抛错，真实原因被掩盖）
+     · index.html / styles.css / app.js 均有改动（全项目质量审计整改），
+       提升缓存版本号确保客人端拿到新版
    注：images/ 下的图片不预缓存，首次浏览时按需写入缓存。
    ============================================================ */
-var CACHE = 'wardrobe-v11';
+var CACHE = 'wardrobe-v12';
 
 /* 预缓存清单：全部静态资源。
    注意：catalog.json 故意不在此列 —— 它走网络优先策略，
@@ -20,14 +24,19 @@ var ASSETS = [
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
-  './db-template.json',
   './offline.html'
 ];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE)
-      .then(function (c) { return c.addAll(ASSETS); })
+      .then(function (c) {
+        /* 逐个 add 而不是 addAll：addAll 只要有一个文件失败，整批都写不进去
+           且不抛给用户 —— 离线能力会整体静默失效。逐个抓，坏一个不影响其余。 */
+        return Promise.all(ASSETS.map(function (u) {
+          return c.add(u).catch(function () { /* 单个资源失败不阻断安装 */ });
+        }));
+      })
       .then(function () { return self.skipWaiting(); })
       .catch(function () { return self.skipWaiting(); })
   );
@@ -96,7 +105,12 @@ self.addEventListener('fetch', function (e) {
   if (/\/catalog\.json$/.test(url.pathname)) {
     e.respondWith(
       networkFirst(e.request).catch(function () {
-        return caches.match('./offline.html');
+        /* 网络与缓存都没有：回一个空 catalog，而不是 HTML。
+           返回 HTML 会让 App 的 r.json() 抛错，真实的"没有数据"被错误掩盖。 */
+        return new Response('{"version":0,"categories":[],"items":[]}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
       })
     );
     return;

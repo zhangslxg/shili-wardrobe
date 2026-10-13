@@ -1,0 +1,13 @@
+# 统一文本行尾为 LF：本项目全是静态资源，Windows 上协同编辑不应引入 CRLF 噪声
+* text=auto eol=lf
+
+# 二进制资源不做行尾转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+
+# 校验脚本与部署工作流按文本处理
+scripts/*.py text
+.github/workflows/*.yml text

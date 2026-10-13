@@ -1,0 +1,21 @@
+root = true
+
+# 全项目统一：UTF-8 无 BOM、LF 行尾、末尾留空行、去行尾空格
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_size = 4
+
+# Markdown 的表格与换行对行尾空格敏感，不自动裁剪
+[*.md]
+trim_trailing_whitespace = false
+
+# 二进制资源不补末尾空行
+[*.{png,jpg,jpeg,webp,ico,woff2}]
+insert_final_newline = false

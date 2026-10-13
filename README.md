@@ -98,23 +98,31 @@ npx serve 衣橱App
 
 **客人不需要下载任何 App**：店里张贴二维码 → 客人微信「扫一扫」或相机扫一下 → 浏览器打开就是选衣界面（启动动画 2.4 秒 → 直接浏览）。
 
-### 当前模式：店内局域网（数据不公开）
+### 当前模式：GitHub Pages 公网 HTTPS（离开店内 Wi-Fi 也能扫）
 
 ```
-电脑运行：python -m http.server 8091 --bind 0.0.0.0
-二维码内容：http://<电脑局域网IP>:8091/index.html   （当前：http://192.168.1.6:8091/index.html）
-客人手机需连接店内同一 Wi-Fi
+二维码内容：https://zhangslxg.github.io/shili-wardrobe/index.html
+客人任何网络下都能打开（无需连店内 Wi-Fi、不依赖店里的电脑开机）
 ```
 
-- 已生成 `店铺二维码.png`，直接打印张贴（收银台 / 试衣间 / 镜台）
-- **IP 会变的两种情况**：电脑重连 Wi-Fi、路由器重新分配地址——IP 变了需重查并重新生成二维码：
+- 已生成 `店铺二维码-https.png`，直接打印张贴（收银台 / 试衣间 / 镜台）；生成命令见下
   ```bash
-  # 1. 查当前局域网 IP（Windows）
-  python -c "import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.connect(('8.8.8.8',80));print(s.getsockname()[0])"
-  # 2. 用新 IP 重新生成二维码（需 pip install qrcode）
-  python -c "import qrcode;qrcode.make('http://<新IP>:8091/index.html').save('店铺二维码.png')"
+  python scripts/make-https-qr.py zhangslxg shili-wardrobe
   ```
-- 此模式下浏览器不允许注册 Service Worker（非 https），所以**离线缓存不可用**，但浏览、catalog 加载都正常；电脑关机则客人打不开
+- HTTPS 下 Service Worker 正常注册，**首次打开后完全离线可用**；换网/关机都不影响已访问过的手机
+- 域名长期不变，二维码可一直使用（换自定义域名时改 URL 重新生成即可）
+
+### 备选模式：店内局域网（断网应急）
+
+公网不通或想彻底不公开数据时，可临时退回局域网自托管：
+
+```bash
+python -m http.server 8091 --bind 0.0.0.0
+# 二维码内容：http://<电脑局域网IP>:8091/index.html，客人手机需连店内同一 Wi-Fi
+```
+
+- **IP 会变**（电脑重连 Wi-Fi、路由器重新分配地址），变了需重查并重新生成二维码
+- 此模式下浏览器不允许注册 Service Worker（非 https），**离线缓存不可用**；电脑关机则客人打不开
 
 ### 双入口设计（顾客端 / 店主端分离）
 
@@ -122,12 +130,12 @@ npx serve 衣橱App
 
 | 入口 | URL | 行为 |
 |------|-----|------|
-| **顾客端**（二维码内容） | `http://<IP>:8091/index.html` | 启动动画 → 主界面；**无数据管理图标**；空库时各卡片显示「这套还在整理」，不暴露任何店主操作 |
-| **店主端**（独立入口） | `http://<IP>:8091/index.html#/admin` | 跳过启动动画，直达数据管理；页内有「店主模式」标识；顶栏返回可预览顾客视角 |
+| **顾客端**（二维码内容） | `https://zhangslxg.github.io/shili-wardrobe/index.html` | 启动动画 → 主界面；**无数据管理入口**；空库时各卡片显示「这套还在整理」，不暴露任何店主操作 |
+| **店主端**（独立入口） | 同上 + `#/admin` | 跳过启动动画，直达数据管理；页内有「店主模式」标识；顶栏可预览顾客视角 |
 
-- 店主把 `#/admin` 链接存为浏览器书签即可（电脑/自己手机各存一份），无需安装任何 App
-- 公网托管后格式相同：`https://<域名>/index.html#/admin`
-- `店铺二维码.png` 指向顾客端 URL，**无需因本次改动重新生成**
+- 店主把 `#/admin` 链接存为浏览器书签即可（电脑 / 自己手机各存一份），无需安装任何 App
+- ⚠️ 店主端**只有 URL hash 一道门**，没有口令。任何拿到 `#/admin` 链接的人都能进店主界面，但只能改**他自己手机上的副本**，改不到店里或别人的数据（数据全在本机 IndexedDB，catalog.json 由店主手动覆盖）。二维码本身只带顾客端 URL，客人正常扫码碰不到店主端
+
 
 ### 在线衣服库 catalog.json（扫码方案的核心）
 
@@ -148,12 +156,13 @@ npx serve 衣橱App
 
 之后新客人扫码即见最新衣服；已打开过的手机按合并导入刷新（不会覆盖客人本机数据）。
 
-### 升级模式：公网托管（客人离开 Wi-Fi 也能扫）
+### 公网托管要点（当前采用的方式）
 
-把本目录部署到 GitHub Pages / Cloudflare Pages（免费），二维码内容换成 `https://zhangslxg.github.io/shili-wardrobe/index.html`：
+部署到 GitHub Pages / Cloudflare Pages（免费）时用上面那个 HTTPS 地址即可：
 - Service Worker 正常注册 → 首次打开后**完全离线可用**
 - 任何网络都能扫开，不限于店内 Wi-Fi
-- 注意：catalog.json 随之公开，衣服库对外可见
+- 注意：`catalog.json` 与 `images/` 随之公开，衣服库对外可见（这是扫码方案的前提）
+- 发布面已白名单化：`.github/workflows/deploy.yml` 只把站点资产复制进 `_site` 再上传，`README.md`、`scripts/`、部署指南等**不会**出现在公开站点上
 
 ## 数据导入（模板化空库，自行填充）
 
@@ -240,25 +249,28 @@ npx serve 衣橱App
 ├── index.html            应用外壳（启动动画 / 数据管理 / 拍照风格库）
 ├── styles.css            暗紫暗黑主题样式
 ├── app.js                应用逻辑（IndexedDB、渲染、导入校验、catalog 版本同步、风格库手势、双入口路由）
-├── sw.js                 Service Worker（v11：预缓存 + catalog 网络优先 + 离线提示页）
+├── sw.js                 Service Worker（v12：预缓存 + catalog 网络优先 + 离线提示页）
 ├── manifest.webmanifest  PWA 清单（可安装、独立窗口、PNG 图标）
 ├── icon.svg              应用图标（矢量）
 ├── icon-192.png          PWA 安装图标 192×192（兼作 iOS apple-touch-icon）
 ├── icon-512.png          PWA 安装图标 512×512（maskable）
-├── db-template.json      空数据库模板（直接可用）
+├── db-template.json      空数据库模板（仅本地参考，不上线）
 ├── catalog.json          店里统一的在线图库（扫码方案核心，店主维护；当前 12 风格 / 9 件衣服）
 ├── offline.html          离线提示页（首次打开且无缓存时显示）
 ├── images/               衣服照片目录（长边 ≤1400px，命名 主图_001.jpg 等）
 ├── .nojekyll             跳过 Jekyll，静态原样伺服
-├── .github/workflows/    GitHub Actions 自动发布（push 即部署）
-├── scripts/              prepare_images.py（换图预检/压缩/清单）/ make_catalog.py / make_icons.py / make-https-qr.py / _check-all.py（完整性校验）
-├── HTTPS+离线部署指南.md 部署/发布/验证完整文档
-└── README.md             本说明
+├── .gitattributes        行尾统一 LF + 二进制资源声明
+├── .editorconfig         编辑器统一（UTF-8 无 BOM / LF / 2 空格）
+├── .github/workflows/    GitHub Actions 自动发布（只发布站点资产白名单）
+├── scripts/              prepare_images.py（换图预检/压缩/清单）/ make_icons.py / make-https-qr.py / _check-all.py（完整性校验）
+│                         + requirements.txt（仅工具脚本用到的 Pillow / qrcode）
+├── HTTPS+离线部署指南.md 部署/发布/验证完整文档（内部文档，不上线）
+└── README.md             本说明（内部文档，不上线）
 ```
 
 ## 常见问题
 
-- **双击 index.html 打不开数据？** file:// 协议下浏览器禁用 IndexedDB，必须用 http 服务器打开（见「快速开始」）。
+- **双击 index.html 打不开数据？** file:// 协议下浏览器禁用 IndexedDB，必须用 http 服务器打开（见「快速开始」）。真遇到时会看到「本机存储不可用」的提示页，而不是一片空白。
 - **图片不显示？** 外链图片需联网；加载失败会自动回退为紫色占位图，不影响浏览。
 - **数据会丢吗？** 数据存于浏览器 IndexedDB，清除浏览器数据会一并清掉，重要数据请定期用「导出当前数据」备份。
 - **想换主题色？** 修改 `styles.css` 顶部 `:root` 中的 `--primary` 系列变量即可。

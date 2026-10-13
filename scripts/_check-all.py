@@ -1,6 +1,6 @@
 # 综合校验：语法 / HTML 结构 / 事件接线 / CSS / catalog schema / 发布资产 / 双端隔离
 # 用法：python scripts/_check-all.py
-import json, os, re, subprocess, sys
+import json, os, re, shutil, subprocess, sys
 from html.parser import HTMLParser
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -17,12 +17,12 @@ def read(p):
         return f.read()
 
 def node_check(jsf):
-    """优先用托管 node，其次 PATH 里的 node；都没有则跳过（不算失败）"""
-    cands = [
+    """依次尝试：PATH 里的 node → 本机托管 node。
+    （不再硬编码某一台机器的绝对路径，换机也不失效。）"""
+    cands = [shutil.which('node')] + [
         r'C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-6\node.exe',
-        'node',
     ]
-    for exe in cands:
+    for exe in [c for c in cands if c]:
         try:
             r = subprocess.run([exe, '--check', os.path.join(APP, jsf)],
                                capture_output=True, text=True)
@@ -132,9 +132,8 @@ for frag, name in [
     ("$('#cover-input')", '封面图片选择框'),
     ("$('#cover-pick')", '从本风格衣服里选封面'),
     ("c.cover", '风格墙读取自定义封面'),
-    ('SL_EDGE', '边缘手势常量'),
-    ('SL_CLOSE_DY', '下滑返回常量'),
     ('SL_NAV_RATIO', '翻页阈值常量'),
+    ('SL_CLOSE_DY', '下滑返回常量'),
     ('function initSlSwipers', '手势器一次性初始化'),
     ("history.pushState({ sl: 2 }", '进网格压栈 sl:2'),
     ("history.pushState({ sl: 3 }", '放大压栈 sl:3'),
@@ -195,8 +194,42 @@ check('.sl-slide img 含 max-width/max-height/auto',
 # 已删除的旧样式不应残留
 for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter',
              '.sl-soon-card', '.style-row-num', '.detail-', '.meta-chip', '.sl-detail-btn',
-             '.pv-stage', '.pv-track', '.pv-slide', '.pv-nav', '.pv-bar', '.pv-note']:
+             '.pv-stage', '.pv-track', '.pv-slide', '.pv-nav', '.pv-bar', '.pv-note',
+             '.brand', '.mode-chip', '#btn-admin']:
     check('已清理死样式: ' + dead, dead not in css)
+
+# ---------- 7.7 CSS 颜色字面量合法性（全项目质量审计新增） ----------
+# 曾出现 #22184（5 位）：CSS 不报错，但带非法值的整条 background 简写会被丢弃，
+# 启动页光晕静默消失。这里扣掉注释后逐个数长度，防回归。
+css_code = re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+bad_colors = [(css_code[:m.start()].count('\n') + 1, m.group(0))
+              for m in re.finditer(r'#[0-9a-fA-F]{1,10}\b', css_code)
+              if len(m.group(0)) - 1 not in (3, 4, 6, 8)]
+check('CSS 颜色字面量长度为 3/4/6/8 位', not bad_colors, str(bad_colors))
+
+# ---------- 7.8 破图兜底：全局单条规则（不再按容器重复） ----------
+check('破图兜底为全局单条 img.img-err 规则', 'img.img-err{display:none}' in css)
+check('破图兜底没有按容器重复定义', css.count('img.img-err') == 1, 'n=%d' % css.count('img.img-err'))
+check('app.js 无内联 onerror 属性（统一走捕获阶段委托）',
+      'onerror="' not in appjs and "addEventListener('error'" in appjs)
+check('弹窗关闭态用 visibility:hidden（退出 Tab 顺序）',
+      'visibility:hidden' in css and '.modal.open{opacity:1;visibility:visible' in css)
+
+# ---------- 7.9 错误处理对称性 + 降级兜底（质量审计新增） ----------
+check('addStyle 写库失败有提示（与 items 侧对称）', "toast('添加风格失败：" in appjs)
+check('deleteEmptyStyle 复用 removeRecord', "return removeRecord('categories', catId)" in appjs)
+check('setStyleCover 写库失败有提示', "toast('封面保存失败：" in appjs)
+check('init 有致命降级兜底（IndexedDB 不可用）', 'function showFatal' in appjs and '.catch(showFatal)' in appjs)
+check('风格名长度有二次夹紧（不只靠 maxlength）',
+      'var STYLE_NAME_MAX = 12' in appjs and 'slice(0, STYLE_NAME_MAX)' in appjs)
+check('renameItem 找不到条目时给反馈并收弹窗',
+      "'这件衣服已经不在了'" in appjs)
+check('删除按钮的无障碍名与可见文字一致',
+      "aria-label=\"' + (armed ? '确认删除' : '删除') + '\"" in appjs)
+# 死代码不得回归（审计中删掉的未使用常量 / 状态字段）
+check('未使用的边缘手势常量已删除',
+      'SL_EDGE' not in appjs and 'SL_OPEN_DX' not in appjs and 'SL_TAP_SLOP' not in appjs)
+check('未使用的 state.active 已删除', 'active:' not in appjs)
 
 # ---------- 7.5 品牌：石榴照相馆 ----------
 check('index.html 品牌为石榴照相馆', '石榴照相馆' in html)
@@ -246,8 +279,8 @@ seg_row = appjs[appjs.index('function itemRowHTML'):appjs.index('function syncRo
 check('行模板用 data-img-for（不把 base64 大图拼进 HTML 字符串）', 'data-img-for' in seg_row)
 check('行模板不再内联 onerror', 'onerror' not in seg_row)
 check('行模板不再把 image 拼进字符串', 'escAttr(it.image)' not in seg_row)
-check('图片失败改捕获阶段委托',
-      "ilist.addEventListener('error'" in appjs and '}, true);' in appjs)
+check('图片失败改全局捕获阶段委托',
+      "document.addEventListener('error'" in appjs and '}, true);' in appjs)
 check('清单重建后还原滚动位置', 'box.scrollTop = top' in appjs)
 check('名字长度上限两处一致',
       'var ITEM_NAME_MAX = 24' in appjs and 'maxlength="24"' in html)
@@ -300,7 +333,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v11', "var CACHE = 'wardrobe-v11';" in sw)
+check('sw 版本 v12', "var CACHE = 'wardrobe-v12';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):

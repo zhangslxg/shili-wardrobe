@@ -18,9 +18,12 @@
 
 注意：本脚本只认 images/ 目录；生成清单后，正式命名/分类请在「数据管理页」里调整。
 """
-import os
-import sys
 import glob
+import json
+import os
+import re
+import sys
+
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,9 +32,7 @@ MAX_EDGE = 1400          # 长边上限（px）
 GOOD_EXT = (".jpg", ".jpeg", ".png", ".webp")
 QUALITY = 82
 
-# 命名约定：主图_001.jpg / 主图_002.jpg ... 或 <单品ID>.jpg
-import re
-NAME_RE = re.compile(r"^(主图|副图|细节|主图_|img|good|item)[-_]?\d*\.?\w*$", re.IGNORECASE)
+# 命名约定（仅用于给出提示，不强制）：主图_001.jpg / 副图_02.png …
 
 
 def check_one(path):
@@ -57,6 +58,10 @@ def check_one(path):
 
 
 def fix_one(path):
+    """超长边则等比压到 MAX_EDGE。**按原格式保存**：
+    早先一律写 JPEG，会把带透明的 png / webp 写成 JPEG 字节却留着原扩展名，
+    透明通道丢失、文件内容与后缀不符，后续按后缀处理会出错。"""
+    ext = os.path.splitext(path)[1].lower()
     try:
         with Image.open(path) as im:
             w, h = im.size
@@ -65,9 +70,13 @@ def fix_one(path):
                 return None
             scale = MAX_EDGE / long_edge
             nw, nh = int(round(w * scale)), int(round(h * scale))
-            im = im.convert("RGB")
-            im = im.resize((nw, nh), Image.LANCZOS)
-            im.save(path, "JPEG", quality=QUALITY)
+            out = im.resize((nw, nh), Image.LANCZOS)
+            if ext == ".png":
+                out.save(path, "PNG", optimize=True)          # 保留透明通道
+            elif ext == ".webp":
+                out.save(path, "WEBP", quality=QUALITY)
+            else:
+                out.convert("RGB").save(path, "JPEG", quality=QUALITY)
             return f"{os.path.basename(path)} {w}x{h} -> {nw}x{nh}"
     except Exception as e:
         return f"{os.path.basename(path)} 压缩失败: {e}"
@@ -106,6 +115,20 @@ def main():
     print(f"\n结果：{ready}/{len(files)} 张可直接上线。")
 
     if cat:
+        # 分类 id 必须真实存在，否则条目会变成"游离条目"（categoryId 悬空），
+        # 导入时 App 会整批报错。所以优先沿用 catalog.json 里已有的分类。
+        cat_id, cat_name = "cat-default", "（请替换成真实风格）"
+        cat_path = os.path.join(ROOT, "catalog.json")
+        try:
+            with open(cat_path, encoding="utf-8") as f:
+                cats = (json.load(f) or {}).get("categories") or []
+            if cats:
+                first = sorted(cats, key=lambda c: c.get("sort", 0))[0]
+                cat_id = first.get("id", cat_id)
+                cat_name = first.get("name", cat_name)
+        except Exception:
+            pass
+
         print("\n===== 可粘进 catalog.json 的 items（起步模板，正式分类请到数据管理页调整）=====")
         items = []
         for i, p in enumerate(files, 1):
@@ -113,7 +136,7 @@ def main():
             items.append(
                 '    {\n'
                 f'      "id": "good-{i:03d}",\n'
-                f'      "categoryId": "cat-default",\n'
+                f'      "categoryId": "{cat_id}",\n'
                 f'      "name": "{stem}",\n'
                 f'      "image": "images/{os.path.basename(p)}",\n'
                 '      "desc": "",\n'
@@ -121,7 +144,7 @@ def main():
                 '    }'
             )
         print('  "items": [\n' + ",\n".join(items) + '\n  ]')
-        print('\n（别忘了在 categories 里加一个 "id": "cat-default" 的风格；'
+        print(f'\n（categoryId 已沿用 catalog.json 中排序最前的风格："{cat_id}" = {cat_name}；'
               '本应用不设价格/库存/尺码/颜色/标签等商品字段）')
 
 

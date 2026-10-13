@@ -30,10 +30,26 @@ jobs:
       - name: 配置 Pages
         uses: actions/configure-pages@v5
 
-      - name: 上传静态产物（整个目录原样上传，无构建步骤）
+      - name: 只挑出站点资产（内部文档 / 脚本 / 校验用例不上线）
+        run: |
+          set -e
+          mkdir -p _site
+          cp index.html styles.css app.js sw.js manifest.webmanifest offline.html \
+             icon.svg icon-192.png icon-512.png catalog.json .nojekyll _site/
+          cp -r images _site/images
+          # 防呆：站点产物里不允许出现内部文档与脚本
+          for bad in README.md scripts .github .gitignore db-template.json; do
+            if [ -e "_site/$bad" ]; then
+              echo "::error::站点产物里出现了不应公开的内容：$bad"
+              exit 1
+            fi
+          done
+          ls -la _site
+
+      - name: 上传静态产物（无构建步骤）
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: 部署
         uses: actions/deploy-pages@v4

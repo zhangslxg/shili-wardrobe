@@ -1,0 +1,6 @@
+# 仅「离线工具脚本」需要；App 本身（index.html / app.js / styles.css / sw.js）零依赖
+#
+#   pip install -r scripts/requirements.txt
+#
+Pillow>=10,<13    # scripts/prepare_images.py 图片预检与压缩
+qrcode>=7,<9      # scripts/make-https-qr.py 生成店铺二维码

@@ -113,7 +113,6 @@
   var state = {
     categories: [],
     items: [],
-    active: 0,
     view: 'splash',
     mode: 'merge'
   };
@@ -155,9 +154,11 @@
      .screen 只剩 启动动画 / 数据管理 两种，
      收起全部 .screen 即露出底下的风格库。                                */
   function showView(v) {
+    var el = $('#' + v);
+    if (!el) return;                       /* 视图 id 写错时不要静默抛 TypeError */
     state.view = v;
     $$('.screen').forEach(function (s) { s.classList.remove('active'); });
-    $('#' + v).classList.add('active');
+    el.classList.add('active');
   }
   window.addEventListener('popstate', function () {
     if (!sl.open) return;
@@ -200,11 +201,8 @@
              → 放大查看（左右滑看上一件 / 下一件）
      历史栈：进网格 push{sl:2} → 放大 push{sl:3}；Android 返回键逐层回退；
              下滑手势等同"返回上一层"，同样走 history.back() 单一出口。   */
-  var SL_EDGE = 26;          /* 边缘手势判定区宽度 px */
-  var SL_OPEN_DX = 44;       /* 开库手势横向阈值 px */
   var SL_NAV_RATIO = 0.2;    /* 浏览翻页阈值 = 屏宽 × 此比例 */
   var SL_CLOSE_DY = 96;      /* 下滑"返回上一层"阈值 px */
-  var SL_TAP_SLOP = 8;       /* 单击判定位移 px */
 
   var sl = { open: false, layer: 'wall', styleId: null, items: [], index: 0 };
 
@@ -317,7 +315,7 @@
       /* 卡片封面：优先分类自带的 cover 字段，其次该风格第一件衣服的图，都没有则用占位底 */
       var cover = (typeof c.cover === 'string' && c.cover) ? c.cover : (its[0] && its[0].image ? its[0].image : '');
       var img = cover
-        ? '<img draggable="false" src="' + escAttr(cover) + '" alt="" onerror="this.classList.add(\'img-err\')">'
+        ? '<img draggable="false" src="' + escAttr(cover) + '" alt="">'
         : '';
       return '<div class="sl-wall-slide" data-cat="' + escAttr(c.id) + '">' +
         '<div class="sl-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
@@ -361,7 +359,7 @@
     $('#sl-grid-scroll').innerHTML = items.map(function (it, i) {
       /* 占位符在前、图片在后（绝对定位叠放），图片加载失败才露出占位 */
       var img = it.image
-        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
+        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '">'
         : '';
       return '<button class="sl-thumb" data-i="' + i + '">' + placeholder(it) + img +
         '<span class="sl-thumb-name">' + esc(it.name) + '</span></button>';
@@ -385,7 +383,7 @@
     $('#sl-track').innerHTML = sl.items.map(function (it) {
       /* draggable="false"：否则在图上起拖会触发原生图片拖拽，吞掉后续 pointermove */
       var img = it.image
-        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
+        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '">'
         : '';
       return '<div class="sl-slide" data-id="' + escAttr(it.id) + '">' + placeholder(it) + img + '</div>';
     }).join('');
@@ -481,24 +479,36 @@
      新增后客人端首屏立即多一张卡（封面先占位，导入衣服后自动取第一张图）。 */
   function styleId() { return 'cat-' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36); }
 
+  var STYLE_NAME_MAX = 12;   /* 与 #style-name / #style-name-inline 的 maxlength 保持一致 */
+
   function addStyle(name, done) {
-    name = String(name == null ? '' : name).trim();
+    /* 长度在这里再夹一次：maxlength 只拦键盘输入，
+       拦不住"用脚本塞进来的值"和 JSON 导入时就超长的旧名字 */
+    name = String(name == null ? '' : name).trim().slice(0, STYLE_NAME_MAX);
     if (!name) { toast('请输入风格名称'); return Promise.resolve(null); }
     if (state.categories.some(function (c) { return c.name === name; })) { toast('已经有同名风格了'); return Promise.resolve(null); }
     var maxSort = state.categories.reduce(function (m, c) { return Math.max(m, c.sort || 0); }, 0);
     var cat = { id: styleId(), name: name, sort: maxSort + 1, desc: '', cover: '' };
+    /* 与 items 侧对称：错误处理用 then(ok, fail) 双参，写库失败要说人话，
+       不能让 Promise 静默 reject 而界面看起来"什么都没发生" */
     return putAll('categories', [cat])
       .then(reload)
-      .then(function () {
-        renderStyleWall();
-        renderStyleManage();
-        renderImgCatSelect();
-        renderStats();
-        renderItemManage();
-        toast('已添加风格卡：' + name);
-        if (done) done(cat);
-        return cat;
-      });
+      .then(
+        function () {
+          renderStyleWall();
+          renderStyleManage();
+          renderImgCatSelect();
+          renderStats();
+          renderItemManage();
+          toast('已添加风格卡：' + name);
+          if (done) done(cat);
+          return cat;
+        },
+        function (e) {
+          toast('添加风格失败：' + errText(e));
+          return null;
+        }
+      );
   }
 
   function renderStyleManage() {
@@ -514,7 +524,7 @@
       /* 占位符在前、图片在后（绝对定位叠放），图片缺失/加载失败时露出占位底 */
       return '<div class="style-row" data-cat="' + escAttr(c.id) + '">' +
         '<span class="style-row-thumb">' + placeholder({ id: c.id, name: c.name }) +
-          (thumb ? '<img draggable="false" src="' + escAttr(thumb) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '') +
+          (thumb ? '<img draggable="false" src="' + escAttr(thumb) + '" alt="">' : '') +
         '</span>' +
         '<span class="style-row-main">' +
           '<span class="style-row-name">' + esc(c.name) + '</span>' +
@@ -528,19 +538,20 @@
 
   function deleteEmptyStyle(catId) {
     var c = state.categories.find(function (x) { return x.id === catId; });
-    if (!c) return;
-    if ((slCounts()[catId] || 0) > 0) { toast('该风格下已有衣服，不能删除'); return; }
-    return openDB().then(function (db) {
-      return new Promise(function (res, rej) {
-        var tx = db.transaction('categories', 'readwrite');
-        tx.objectStore('categories').delete(catId);
-        tx.oncomplete = res;
-        tx.onerror = function () { rej(tx.error); };
-      });
-    }).then(reload).then(function () {
-      renderStyleWall(); renderStyleManage(); renderImgCatSelect(); renderStats(); renderItemManage();
-      toast('已删除风格：' + c.name);
-    });
+    if (!c) return Promise.resolve();
+    if ((slCounts()[catId] || 0) > 0) { toast('该风格下已有衣服，不能删除'); return Promise.resolve(); }
+    var label = c.name;
+    /* 复用通用的单键删除，不再手写一遍 IndexedDB 事务样板 */
+    return removeRecord('categories', catId).then(reload).then(
+      function () {
+        renderStyleWall(); renderStyleManage(); renderImgCatSelect(); renderStats(); renderItemManage();
+        toast('已删除风格：' + label);
+      },
+      function (e) {
+        toast('删除风格失败：' + errText(e));
+        renderStyleManage();
+      }
+    );
   }
 
   /* ---------------- 衣服清单（条目级增删改）· 店主端 ----------------
@@ -641,7 +652,8 @@
         '<select class="sel item-row-cat" data-move-item="' + id + '" aria-label="所属风格">' +
           placeholderOpt + opts + '</select>' +
       '</span>' +
-      '<button type="button" class="item-row-del" data-del-item="' + id + '" aria-label="删除这件衣服">' +
+      '<button type="button" class="item-row-del" data-del-item="' + id +
+        '" aria-label="' + (armed ? '确认删除' : '删除') + '">' +
         (armed ? '确认删除' : '×') + '</button>' +
     '</div>';
   }
@@ -780,7 +792,9 @@
 
   function renameItem(id, rawName) {
     var it = findItem(id);
-    if (!it) return Promise.resolve();
+    /* 条目已不存在（例如改名弹窗开着的时候它被删了）：
+       必须给反馈并收起弹窗，否则用户以为"保存成功"了 */
+    if (!it) { closeItemModal(); toast('这件衣服已经不在了'); return Promise.resolve(); }
     /* 长度在这里再夹一次：maxlength 只拦键盘输入，
        它拦不住"用脚本塞进来的值"和 JSON 导入时就超长的旧名字 */
     var name = String(rawName == null ? '' : rawName).trim().slice(0, ITEM_NAME_MAX);
@@ -884,10 +898,10 @@
 
   function openCoverModal(catId) {
     var c = state.categories.find(function (x) { return x.id === catId; });
-    if (!c) return;
+    var m = $('#cover-modal');
+    if (!c || !m) return;
     coverCatId = catId;
     renderCoverModal();
-    var m = $('#cover-modal');
     m.classList.add('open');
     m.setAttribute('aria-hidden', 'false');
   }
@@ -909,7 +923,7 @@
     $('#cover-modal-title').textContent = '卡片封面 · ' + c.name;
     $('#cover-preview-img').innerHTML =
       placeholder({ id: c.id, name: c.name }) +
-      (shown ? '<img draggable="false" src="' + escAttr(shown) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '');
+      (shown ? '<img draggable="false" src="' + escAttr(shown) + '" alt="">' : '');
     $('#cover-preview-txt').textContent = custom
       ? '当前：自定义封面（' + (custom.indexOf('data:') === 0 ? '本机上传的图片' : custom) + '）'
       : (auto ? '当前：自动（取该风格第一张衣服图）' : '当前：暂无图片，请用下面的方式添加');
@@ -927,7 +941,7 @@
         '<div class="cover-pick-grid">' +
         items.map(function (it) {
           var img = it.image
-            ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="" onerror="this.classList.add(\'img-err\')">'
+            ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="">'
             : '';
           var on = (custom && it.image && custom === it.image) ? ' on' : '';
           return '<button class="cover-thumb' + on + '" data-img="' + escAttr(it.image || '') + '" aria-label="' + escAttr(it.name) + '">' +
@@ -944,10 +958,16 @@
       id: c.id, name: c.name, sort: c.sort || 0,
       desc: c.desc || '', cover: cover || ''
     };
-    return putAll('categories', [next]).then(reload).then(function () {
-      renderStyleWall(); renderStyleManage(); renderCoverModal();
-      toast(cover ? '已设置卡片封面' : '已恢复自动封面');
-    });
+    return putAll('categories', [next]).then(reload).then(
+      function () {
+        renderStyleWall(); renderStyleManage(); renderCoverModal();
+        toast(cover ? '已设置卡片封面' : '已恢复自动封面');
+      },
+      function (e) {
+        toast('封面保存失败：' + errText(e));
+        renderCoverModal();            /* 退回库里的真实封面，不留假象 */
+      }
+    );
   }
 
   /* ---------------- 数据管理 ---------------- */
@@ -1278,6 +1298,14 @@
       }
     });
 
+    /* 全站破图兜底：error 事件不冒泡，只能在捕获阶段听。
+       一处委托替代原先 6 处内联 onerror —— 少 N 份重复字符串，
+       也不再挡住将来的严格 CSP（内联事件属性是 CSP 的硬伤）。 */
+    document.addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'IMG') t.classList.add('img-err');
+    }, true);
+
     /* 风格卡管理：删除空风格（有衣服的卡片不允许删，避免误删数据） */
     var slist = $('#style-list');
     if (slist) slist.addEventListener('click', function (e) {
@@ -1289,13 +1317,6 @@
     /* 衣服清单：点缩略图换图 / 点名字改名 / 点 × 删除（二次确认） */
     var ilist = $('#item-list');
     if (ilist) {
-      /* 图片加载失败 → 打上 img-err，露出底下早就铺好的占位色块。
-         error 事件不冒泡，只能在捕获阶段听；这样也省掉了每张图各带一个
-         内联 onerror 属性（少 N 份重复代码，对将来的 CSP 也更友好）。 */
-      ilist.addEventListener('error', function (e) {
-        var t = e.target;
-        if (t && t.tagName === 'IMG') t.classList.add('img-err');
-      }, true);
       ilist.addEventListener('click', function (e) {
         var th = e.target.closest('[data-thumb-item]');
         if (th) {
@@ -1427,6 +1448,22 @@
 '· 更新线上内容：先在「数据管理」导出，覆盖仓库里的 catalog.json，再更新部署。';
   }
 
+  /* 致命降级：IndexedDB 不可用（无痕/隐私模式、企业策略、file:// 直开、配额已满）
+     时不要让用户对着一片空白猜发生了什么。把启动页改写成一句人话 + 一条出路。 */
+  var fatalErr = null;
+  function showFatal(e) {
+    fatalErr = errText(e);
+    var s = $('#splash');
+    if (!s) { toast('本机存储不可用：' + fatalErr); return; }
+    $$('.screen').forEach(function (x) { x.classList.remove('active'); });
+    s.classList.add('active');
+    s.innerHTML = '<div class="splash-inner">' +
+      '<h1 class="splash-title">本机存储不可用</h1>' +
+      '<p class="splash-sub">' + esc(fatalErr) + '</p>' +
+      '<p class="splash-sub">请改用 https 打开，或退出无痕 / 隐私模式后重试。</p>' +
+      '</div>';
+  }
+
   function init() {
     bindActions();
     bindStyleLib();
@@ -1440,10 +1477,11 @@
       return syncCatalog();
     }).then(function () {
       if (sl.open) renderStyleWall();   /* 同步到新数据后刷新风格墙 */
-    });
+    }).catch(showFatal);
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () {});
     }
+    if (fatalErr) return;               /* 存储不可用就不再往下走，把提示留在屏幕上 */
     if (isAdminMode()) {
       $('#splash').classList.remove('active');
       showView('data');   /* 店主端独立入口：跳过启动动画，直达数据管理 */
@@ -1451,6 +1489,7 @@
       /* 顾客端：启动动画结束后直接落在拍照风格墙上 ——
          风格库就是主界面，中间不再经过任何"店铺首页"或入口按钮。 */
       setTimeout(function () {
+        if (fatalErr) return;
         $('#splash').classList.remove('active');
         openStyleLib();
       }, 2400);
