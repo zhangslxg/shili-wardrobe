@@ -958,7 +958,10 @@
             ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="">'
             : '';
           var on = (custom && it.image && custom === it.image) ? ' on' : '';
-          return '<button class="cover-thumb' + on + '" data-img="' + escAttr(it.image || '') + '" aria-label="' + escAttr(it.name) + '">' +
+          /* 只存条目 id，不要像早期那样把整张 base64 塞进 data-img 属性：
+             那样会让封面弹窗 innerHTML 变成几百 KB×N 的大字符串，徒增 DOM 内存。
+             图片在点击时由 findItem(id).image 从内存现取（与衣服清单 syncRowImage 同思路）。 */
+          return '<button class="cover-thumb' + on + '" data-id="' + escAttr(it.id) + '" aria-label="' + escAttr(it.name) + '">' +
             placeholder(it) + img + '</button>';
         }).join('') +
         '</div>';
@@ -1388,9 +1391,10 @@
     if (pickBox) pickBox.addEventListener('click', function (e) {
       var t = e.target.closest('.cover-thumb');
       if (!t || !coverCatId) return;
-      var url = t.dataset.img || '';
-      if (!url) { toast('这件衣服还没有图片'); return; }
-      setStyleCover(coverCatId, url);
+      /* 按钮只带了条目 id，图片从内存现取（避免把 base64 塞进 HTML 属性） */
+      var it = findItem(t.dataset.id);
+      if (!it || !it.image) { toast('这件衣服还没有图片'); return; }
+      setStyleCover(coverCatId, it.image);
     });
 
     /* 封面弹窗：上传本地图片（压缩后存本机，离线可用） */

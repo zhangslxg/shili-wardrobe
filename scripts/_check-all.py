@@ -279,6 +279,9 @@ seg_row = appjs[appjs.index('function itemRowHTML'):appjs.index('function syncRo
 check('行模板用 data-img-for（不把 base64 大图拼进 HTML 字符串）', 'data-img-for' in seg_row)
 check('行模板不再内联 onerror', 'onerror' not in seg_row)
 check('行模板不再把 image 拼进字符串', 'escAttr(it.image)' not in seg_row)
+# 封面挑选按钮曾经把整张 base64 塞进 data-img 属性（与上面同类的反模式），
+# 现已改为只存条目 id、点击时从内存现取；此条防回归。
+check('封面挑选按钮不把 base64 塞进 data-img 属性', 'data-img="' not in appjs)
 check('图片失败改全局捕获阶段委托',
       "document.addEventListener('error'" in appjs and '}, true);' in appjs)
 check('清单重建后还原滚动位置', 'box.scrollTop = top' in appjs)
@@ -336,7 +339,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v16', "var CACHE = 'wardrobe-v16';" in sw)
+check('sw 版本 v17', "var CACHE = 'wardrobe-v17';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
