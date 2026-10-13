@@ -588,7 +588,7 @@
       categoryId: pick('categoryId'),
       name: pick('name'),
       image: pick('image'),
-      desc: it.desc || '',
+      desc: pick('desc') || '',
       sort: typeof it.sort === 'number' ? it.sort : 0
     };
   }
@@ -651,6 +651,8 @@
           esc(it.name) + '</button>' +
         '<select class="sel item-row-cat" data-move-item="' + id + '" aria-label="所属风格">' +
           placeholderOpt + opts + '</select>' +
+        '<input class="item-row-desc" type="text" data-desc-item="' + id +
+          '" value="' + escAttr(it.desc || '') + '" placeholder="添加一句说明（选填，显示在放大页）" maxlength="30" aria-label="说明">' +
       '</span>' +
       '<button type="button" class="item-row-del" data-del-item="' + id +
         '" aria-label="' + (armed ? '确认删除' : '删除') + '">' +
@@ -830,6 +832,18 @@
       /* 失败同理：updateItem 里已经重渲染，下拉会自动跳回原来的风格 */
       if (done) toast('已移到「' + cat.name + '」：' + label);
     });
+  }
+
+  /* 编辑一句说明（选填，显示在放大查看页的所属风格旁）。
+     与 moveItemCat 同模式：输入框失焦/回车即写库，空值 = 清空说明。
+     注意渲染用的是「顺序没变就地更新」，输入框失焦触发 updateItem 后
+     renderItemManage 会重建这一行 —— 值已落库，无妨。                  */
+  function setItemDesc(id, desc) {
+    var it = findItem(id);
+    if (!it) return Promise.resolve();
+    var next = (desc == null ? '' : String(desc)).trim();
+    if ((it.desc || '') === next) return Promise.resolve();
+    return updateItem(itemRecord(it, { desc: next }));
   }
 
   function openItemModal(id) {
@@ -1335,6 +1349,19 @@
         var s = e.target.closest('[data-move-item]');
         if (!s) return;
         moveItemCat(s.getAttribute('data-move-item'), s.value);
+      });
+      /* 说明输入框：失焦即写库（回车也会触发 blur），不打断编辑流 */
+      ilist.addEventListener('blur', function (e) {
+        var d = e.target.closest('[data-desc-item]');
+        if (!d) return;
+        setItemDesc(d.getAttribute('data-desc-item'), d.value);
+      }, true);
+      ilist.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        var d = e.target.closest('[data-desc-item]');
+        if (!d) return;
+        e.preventDefault();
+        d.blur();
       });
     }
     /* 条目换图：隐藏 input 选完即压缩入库（与封面图同一套压缩逻辑） */

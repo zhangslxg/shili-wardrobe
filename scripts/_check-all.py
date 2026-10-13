@@ -288,8 +288,11 @@ check('待确认时长用常量而非魔数', 'ITEM_ARM_MS' in appjs)
 check('游离风格条目有占位项（防下拉静默跳风格）', '原风格已不存在' in appjs)
 check('清单顺序跟随风格顺序', 'order[a.categoryId]' in appjs)
 check('空清单有引导文案', '还没有衣服' in appjs)
-for hook in ['data-thumb-item', 'data-rename-item', 'data-del-item', 'data-move-item', 'data-item=']:
+for hook in ['data-thumb-item', 'data-rename-item', 'data-del-item', 'data-move-item',
+              'data-desc-item', 'data-item=']:
     check('衣服清单钩子: ' + hook, hook in appjs)
+check('说明编辑有写库函数 setItemDesc', 'function setItemDesc' in appjs)
+check('说明编辑走 itemRecord 白名单', "itemRecord(it, { desc: next })" in appjs)
 check('item-rename 有处理分支', "act === 'item-rename'" in appjs)
 check('item-modal-close 有处理分支', "act === 'item-modal-close'" in appjs)
 init_seg = appjs[appjs.index('function init()'):]
@@ -297,8 +300,8 @@ check('init 渲染衣服清单', 'renderItemManage();' in init_seg)
 check('风格卡仍受保护：非空不可删', '该风格下已有衣服，不能删除' in appjs)
 check('风格删除按钮仅在空风格出现', '(n === 0 ?' in appjs)
 for cls in ['.item-list{', '.item-list::-webkit-scrollbar', '.item-row{', '.item-row.armed',
-            '.item-row-thumb', '.item-row-name', '.sel.item-row-cat', '.item-row-del',
-            '.item-row.armed .item-row-del', '.item-row-none']:
+            '.item-row-thumb', '.item-row-name', '.sel.item-row-cat', '.item-row-desc',
+            '.item-row-del', '.item-row.armed .item-row-del', '.item-row-none']:
     check('衣服清单样式: ' + cls, cls in css)
 
 # ---------- 8. catalog.json schema ----------
@@ -333,7 +336,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v14', "var CACHE = 'wardrobe-v14';" in sw)
+check('sw 版本 v15', "var CACHE = 'wardrobe-v15';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
