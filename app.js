@@ -157,9 +157,11 @@
   window.addEventListener('popstate', function () {
     var s = history.state || {};
     if (sl.open) {
-      if (s.sl === 1 && sl.layer === 'browser') { slToWall(); return; }  /* 浏览层 → 回风格墙 */
-      if (!s.sl) { closeStyleLib(true); return; }                       /* 库级 → 关库 */
-      /* s.sl === 2（风格浏览态）：穿透到下面的视图处理（如详情页返回） */
+      /* 三层栈：{sl:1}=风格墙  {sl:2}=模板库网格  {sl:3}=放大查看
+         按下返回键逐层回退：放大→网格→墙→关库 */
+      if (sl.layer === 'browser' && s.sl === 2) { slToGrid(); return; }
+      if (sl.layer === 'grid' && s.sl === 1) { slToWall(); return; }
+      if (!s.sl || s.sl === 1) { closeStyleLib(true); return; }   /* 墙层 → 关库回首页 */
     }
     if (state.view === 'detail' || state.view === 'data') {
       /* 店主模式下详情返回应回数据管理页，而不是顾客主界面 */
@@ -196,54 +198,28 @@
   function sortBySort(a, b) { return (a.sort || 0) - (b.sort || 0); }
 
   function renderMain() {
-    var strip = $('#cat-strip'), pager = $('#pager');
-
-    if (!state.categories.length) {
-      strip.innerHTML = '';
-      if (isAdminMode()) {
-        /* 店主端空态：完整引导，含导入入口 */
-        pager.innerHTML =
-          '<div class="empty">' +
-            '<div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.6a2 2 0 1 1 2-2c0 1.1-2 1.9-2 3.2"/><path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/></svg></div>' +
-            '<h2>衣橱还是空的</h2>' +
-            '<p>选几个衣服图片，或导入一份 JSON 数据</p>' +
-            '<button class="btn btn-primary" data-act="open-data">导入数据</button>' +
-            '<button class="btn btn-ghost" data-act="dl-template">下载空模板</button>' +
-          '</div>';
-      } else {
-        /* 顾客端空态：只传达"上新中"，不暴露任何店主操作 */
-        pager.innerHTML =
-          '<div class="empty">' +
-            '<div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.6a2 2 0 1 1 2-2c0 1.1-2 1.9-2 3.2"/><path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/></svg></div>' +
-            '<h2>新衣上新中</h2>' +
-            '<p>店里正在整理新款，稍后回来看看</p>' +
-          '</div>';
-      }
+    /* 顾客端首页：中性首页，不再呈现"在售商品"电商网格。
+       首页只提供「进入拍照风格库」入口 + 各风格快捷卡（点开即进对应模板库）。 */
+    var box = $('#main-styles');
+    if (!box) return;
+    var cats = slCats();
+    if (!cats.length) {
+      box.innerHTML = '<div class="home-empty">服装上新中，稍后回来看看</div>';
       return;
     }
-
-    var cnt = counts();
-    strip.innerHTML = state.categories.map(function (c, i) {
-      return '<button class="cat-chip' + (i === 0 ? ' on' : '') + '" data-i="' + i + '">' +
-        '<span>' + esc(c.name) + '</span><i>' + (cnt[c.id] || 0) + '</i></button>';
-    }).join('');
-
-    pager.innerHTML = state.categories.map(function (c, i) {
-      var items = state.items.filter(function (it) { return it.categoryId === c.id; }).sort(sortBySort);
-      return '<div class="page" data-i="' + i + '">' +
-        '<div class="page-hero">' +
-          '<div class="page-cat">' + esc(c.name) + '</div>' +
-          '<div class="page-sub">' + items.length + ' 件' + (c.desc ? ' · ' + esc(c.desc) : '') + '</div>' +
-        '</div>' +
-        '<div class="grid">' +
-          (items.length ? items.map(cardHTML).join('') : '<div class="grid-empty">该分类下还没有衣服</div>') +
-        '</div>' +
-      '</div>';
-    }).join('');
-
-    if (state.active >= state.categories.length) state.active = 0;
-    state.active = 0;   /* 数据变化后回到第一个分类，chip 与滚动位置保持同步 */
-    pager.scrollLeft = state.active * pager.clientWidth;
+    box.innerHTML =
+      '<p class="home-tip">挑一套喜欢的风格，看看里面的衣服</p>' +
+      cats.map(function (c) {
+        var its = slStyleItems(c.id);
+        var cover = its[0] && its[0].image ? its[0].image : '';
+        var img = cover
+          ? '<img draggable="false" src="' + escAttr(cover) + '" alt="" onerror="this.classList.add(\'img-err\')">'
+          : '';
+        return '<button class="home-style" data-cat="' + escAttr(c.id) + '">' +
+          '<div class="home-style-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
+          '<span>' + esc(c.name) + '</span><i>' + its.length + ' 套</i>' +
+        '</button>';
+      }).join('');
   }
 
   function cardHTML(it) {
@@ -360,13 +336,13 @@
       track: $('#sl-wall-track'),
       count: function () { return $('#sl-wall-track').children.length; },
       onSwipeDown: function () { closeStyleLib(false); },
-      /* 点卡进入：pointerdown 时捕获尚未生效，downTarget 是真实被点的元素 */
+      /* 点卡进入模板库（网格层）：pointerdown 时捕获尚未生效，downTarget 是真实被点的元素 */
       onTap: function (t) {
         var card = t && t.closest ? t.closest('.sl-wall-slide') : null;
         if (!card) return;
         var catId = card.dataset.cat;
         if (!catId) { toast('新风格筹备中，敬请期待'); return; }
-        openBrowser(catId);   /* openBrowser 内部 push {sl:2}，此处不重复压栈 */
+        openGridView(catId);   /* 内部 push {sl:2}，此处不重复压栈 */
       }
     });
     browserSwiper = makeSwiper({
@@ -374,7 +350,7 @@
       track: $('#sl-track'),
       count: function () { return sl.items.length; },
       onIndex: function (i) { updateBrowserChrome(i); },
-      onSwipeDown: function () { slBackWall(); },
+      onSwipeDown: function () { slBackGrid(); },   /* 放大态下滑 → 回网格 */
       onTap: function () { $('#sl-browser').classList.toggle('sl-immersive'); }
     });
   }
@@ -405,31 +381,56 @@
     '</div>';
     track.innerHTML = html;
     $('#sl-wall-count').textContent = cats.length ? cats.length + ' 个风格' : '';
-    wallSwiper.reset();   /* swiper 只初始化一次（bindStyleLibEdge），此处仅重置位置 */
+    wallSwiper.reset();   /* swiper 只初始化一次（bindStyleLib），此处仅重置位置 */
   }
 
-  /* ---- 风格全屏浏览 ---- */
-  var browserSwiper = null;
-  function openBrowser(catId) {
+  /* ---- 第二层：模板库（衣服缩略图网格） ---- */
+  function renderGridView(catId) {
     var cat = state.categories.find(function (c) { return c.id === catId; });
     var items = slStyleItems(catId);
-    if (!cat || !items.length) return;
-    sl.styleId = catId; sl.items = items; sl.index = 0; sl.layer = 'browser';
-    $('#sl-track').innerHTML = items.map(function (it) {
-      /* draggable="false"：否则在图上起拖会触发 Chrome 原生图片拖拽，吞掉后续 pointermove */
+    $('#sl-grid-title').textContent = cat ? cat.name : '服装';
+    $('#sl-grid-count').textContent = items.length + ' 件';
+    $('#sl-grid-scroll').innerHTML = items.map(function (it, i) {
+      /* 占位符在前、图片在后（绝对定位叠放），图片加载失败才露出占位 */
+      var img = it.image
+        ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
+        : '';
+      return '<button class="sl-thumb" data-i="' + i + '">' + placeholder(it) + img +
+        '<span class="sl-thumb-name">' + esc(it.name) + '</span></button>';
+    }).join('');
+  }
+  function openGridView(catId) {
+    var cat = state.categories.find(function (c) { return c.id === catId; });
+    var items = slStyleItems(catId);
+    if (!cat || !items.length) { toast('该风格还没有衣服'); return; }
+    sl.styleId = catId; sl.items = items; sl.layer = 'grid';
+    renderGridView(catId);
+    $('#sl-gridview').classList.add('on');
+    try { history.pushState({ sl: 2 }, ''); } catch (e) {}
+  }
+
+  /* ---- 第三层：放大查看（左右滑动浏览上一件 / 下一件） ---- */
+  var browserSwiper = null;
+  function openBrowser(i) {
+    if (!sl.items.length) return;
+    if (typeof i !== 'number' || i < 0) i = 0;
+    sl.index = i; sl.layer = 'browser';
+    $('#sl-track').innerHTML = sl.items.map(function (it) {
+      /* draggable="false"：否则在图上起拖会触发原生图片拖拽，吞掉后续 pointermove */
       var img = it.image
         ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
         : '';
       return '<div class="sl-slide" data-id="' + escAttr(it.id) + '">' + placeholder(it) + img + '</div>';
     }).join('');
-    $('#sl-browser-title').textContent = cat.name;
-    $('#sl-dots').innerHTML = items.map(function (_, i) {
-      return '<i class="sl-dot' + (i === 0 ? ' on' : '') + '" data-i="' + i + '"></i>';
+    $('#sl-browser-title').textContent = sl.items[i].name;
+    $('#sl-dots').innerHTML = sl.items.map(function (_, j) {
+      return '<i class="sl-dot' + (j === i ? ' on' : '') + '" data-i="' + j + '"></i>';
     }).join('');
-    browserSwiper.reset();   /* swiper 只初始化一次（bindStyleLibEdge），此处仅重置位置 */
-    updateBrowserChrome(0);
+    browserSwiper.reset();          /* swiper 只初始化一次，此处仅重置位置 */
+    browserSwiper.go(i, true);      /* 跳到被点的那件 */
+    updateBrowserChrome(i);
     $('#sl-browser').classList.add('on');
-    try { history.pushState({ sl: 2 }, ''); } catch (e) {}
+    try { history.pushState({ sl: 3 }, ''); } catch (e) {}
   }
   function updateBrowserChrome(i) {
     var n = sl.items.length;
@@ -448,9 +449,25 @@
   }
   function slToWall() {
     sl.layer = 'wall';
+    $('#sl-gridview').classList.remove('on');
     $('#sl-browser').classList.remove('on');
     $('#sl-browser').classList.remove('sl-immersive');
     if (wallSwiper) wallSwiper.render(true);
+  }
+  function slToGrid() {
+    sl.layer = 'grid';
+    $('#sl-browser').classList.remove('on');
+    $('#sl-browser').classList.remove('sl-immersive');
+    $('#sl-gridview').classList.add('on');
+    if (browserSwiper) browserSwiper.render(true);
+  }
+  function slBackWall() {
+    if (history.state && history.state.sl === 2) { try { history.back(); return; } catch (e) {} }
+    slToWall();
+  }
+  function slBackGrid() {
+    if (history.state && history.state.sl === 3) { try { history.back(); return; } catch (e) {} }
+    slToGrid();
   }
 
   /* ---- 开库 / 关库（历史栈单一出口） ---- */
@@ -474,71 +491,38 @@
     sl.open = false;
     $('#stylelib').classList.remove('open');
     $('#stylelib').setAttribute('aria-hidden', 'true');
+    $('#sl-gridview').classList.remove('on');
     $('#sl-browser').classList.remove('on');
     $('#sl-browser').classList.remove('sl-immersive');
+    if (isAdminMode()) showView('data'); else showView('main');   /* 露出底层首页 */
     if (!fromPop && history.state && history.state.sl) {
       try { history.back(); } catch (e) {}   /* 消费掉开库时压入的 state，栈保持干净 */
     }
   }
 
   /* 主界面边缘横滑开库：左缘右滑 / 右缘左滑均可（移动端边缘手势习惯） */
-  function bindStyleLibEdge() {
-    /* 两个滑动手势器只创建一次：重复创建会在同一 stage 上叠加监听器，
-       导致一次点击触发多次 openBrowser、历史栈被重复压栈 */
+  function bindStyleLib() {
+    /* 手势器只创建一次：重复创建会在同一 stage 上叠加监听器 */
     initSlSwipers();
-    var pager = $('#pager');
-    var edge = 0, startX = 0, startY = 0, tracking = false;
-    pager.addEventListener('pointerdown', function (e) {
-      var r = pager.getBoundingClientRect();
-      var x = e.clientX - r.left;
-      edge = x < SL_EDGE ? -1 : (x > r.width - SL_EDGE ? 1 : 0);
-      startX = e.clientX; startY = e.clientY; tracking = edge !== 0;
+    /* 首页「进入拍照风格库」按钮 */
+    var enter = $('#home-enter');
+    if (enter) enter.addEventListener('click', openStyleLib);
+    /* 首页风格快捷入口：直接进对应模板库 */
+    var styles = $('#main-styles');
+    if (styles) styles.addEventListener('click', function (e) {
+      var b = e.target.closest('.home-style');
+      if (!b) return;
+      openStyleLib(); openGridView(b.dataset.cat);
     });
-    window.addEventListener('pointermove', function (e) {
-      if (!tracking) return;
-      var mx = e.clientX - startX, my = e.clientY - startY;
-      if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
-      if (Math.abs(mx) <= Math.abs(my)) return;          /* 纵向让位给页面滚动 */
-      if ((edge === -1 && mx > SL_OPEN_DX) || (edge === 1 && mx < -SL_OPEN_DX)) {
-        tracking = false;
-        openStyleLib();
-      }
+    /* 第二层网格：点缩略图 → 放大查看 */
+    var grid = $('#sl-grid-scroll');
+    if (grid) grid.addEventListener('click', function (e) {
+      var t = e.target.closest('.sl-thumb');
+      if (!t) return;
+      openBrowser(parseInt(t.dataset.i, 10));
     });
-    window.addEventListener('pointerup', function () { tracking = false; });
-    window.addEventListener('pointercancel', function () { tracking = false; });
-    $('#btn-stylelib').addEventListener('click', openStyleLib);
     /* 风格墙点卡进入逻辑在 wallSwiper.onTap 内完成（setPointerCapture 会重定靶
        click 事件到 stage，因此不能再用 stage 级 click 委托，详见 makeSwiper） */
-  }
-  var scrollT;
-  function bindPager() {
-    var pager = $('#pager'), strip = $('#cat-strip');
-    pager.addEventListener('scroll', function () {
-      $('#swipe-hint').classList.add('hide');
-      clearTimeout(scrollT);
-      scrollT = setTimeout(function () {
-        var i = Math.round(pager.scrollLeft / pager.clientWidth);
-        setActive(i);
-      }, 90);
-    }, { passive: true });
-    strip.addEventListener('click', function (e) {
-      var b = e.target.closest('.cat-chip');
-      if (!b) return;
-      pager.scrollTo({ left: parseInt(b.dataset.i, 10) * pager.clientWidth, behavior: 'smooth' });
-    });
-    pager.addEventListener('click', function (e) {
-      var c = e.target.closest('.card');
-      if (c) openDetail(c.dataset.id);
-    });
-  }
-  function setActive(i) {
-    if (i === state.active) return;
-    state.active = i;
-    var chips = $$('.cat-chip');
-    chips.forEach(function (b, j) { b.classList.toggle('on', j === i); });
-    if (chips[i]) {
-      try { chips[i].scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (e) {}
-    }
   }
 
   /* ---------------- 详情页 ---------------- */
@@ -842,6 +826,7 @@
       if (act === 'open-data') { openView('data'); }
       else if (act === 'sl-close') { closeStyleLib(false); }
       else if (act === 'sl-back-wall') { slBackWall(); }
+      else if (act === 'sl-back-grid') { slBackGrid(); }
       else if (act === 'sl-detail') { var cur = sl.items[sl.index]; if (cur) openDetail(cur.id); }
       else if (act === 'back') { closeView(); }
       else if (act === 'dl-template') {
@@ -929,9 +914,8 @@
   }
 
   function init() {
-    bindPager();
     bindActions();
-    bindStyleLibEdge();
+    bindStyleLib();
     renderFmtExample();
     applyMode();
     reload().then(function () {
@@ -944,9 +928,14 @@
       navigator.serviceWorker.register('sw.js').catch(function () {});
     }
     if (isAdminMode()) {
+      $('#splash').classList.remove('active');
       showView('data');   /* 店主端独立入口：跳过启动动画，直达数据管理 */
     } else {
-      setTimeout(function () { showView('main'); }, 2400);  /* 顾客端：启动动画后进主界面 */
+      /* 顾客端：启动动画后直接进入拍照风格库（扫码即可使用，无需先经过店铺首页） */
+      setTimeout(function () {
+        $('#splash').classList.remove('active');
+        openStyleLib();
+      }, 2400);
     }
   }
 

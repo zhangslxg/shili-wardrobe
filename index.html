@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#0B0910">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="零成本衣服展示应用：滑动切换分类，点击浏览全部服装">
-<title>衣橱 · 轻选衣</title>
+<meta name="description" content="照相馆服装挑选：左右滑动浏览拍摄风格，点开看里面的衣服，挑你喜欢的拍">
+<title>照相馆选衣</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -24,13 +24,13 @@
         <path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/>
       </svg>
     </div>
-    <h1 class="splash-title">衣橱</h1>
-    <p class="splash-sub">左右滑动，看尽好衣</p>
+    <h1 class="splash-title">照相馆</h1>
+    <p class="splash-sub">挑选你的拍摄服装</p>
     <div class="splash-bar"><i></i></div>
   </div>
 </section>
 
-<!-- ============ 主界面 ============ -->
+<!-- ============ 顾客首页（中性，非电商店铺） ============ -->
 <section id="main" class="screen main">
   <header class="topbar">
     <div class="brand">
@@ -40,25 +40,19 @@
           <path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/>
         </svg>
       </span>
-      <span class="brand-name">衣橱</span>
-      <span class="mode-chip" id="mode-chip">店主预览中</span>
+      <span class="brand-name">选衣</span>
     </div>
-    <button class="iconbtn" id="btn-stylelib" aria-label="拍照风格库">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
-    </button>
-    <button class="iconbtn" id="btn-admin" data-act="open-data" aria-label="数据管理">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <ellipse cx="12" cy="5.5" rx="7.5" ry="3"/>
-        <path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/>
-        <path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/>
-      </svg>
-    </button>
   </header>
-  <div class="cat-strip" id="cat-strip"></div>
-  <div class="pager" id="pager"></div>
-  <div class="swipe-hint" id="swipe-hint">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 7l-4 5 4 5M16 7l4 5-4 5"/></svg>
-    左右滑动切换分类
+  <div class="home">
+    <div class="home-hero">
+      <h1 class="home-h">选一套风格，挑一件衣服</h1>
+      <p class="home-sub">左右滑动浏览拍摄风格，点开任意一套，看里面的衣服</p>
+    </div>
+    <button class="home-enter" id="home-enter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
+      进入拍照风格库
+    </button>
+    <div class="home-styles" id="main-styles"></div>
   </div>
 </section>
 
@@ -148,12 +142,12 @@
   </div>
 </section>
 
-<!-- ============ 拍照风格库（顾客端沉浸浏览：边缘横滑或顶栏按钮打开） ============ -->
+<!-- ============ 拍照风格库（顾客端沉浸浏览，扫码进入直接使用） ============ -->
 <section id="stylelib" class="stylelib" aria-hidden="true">
-  <!-- 第一层：风格墙（每个拍照风格一张封面大卡，左右滑动浏览） -->
+  <!-- 第一层：风格墙（每个拍摄风格一张封面大卡，左右滑动浏览） -->
   <div class="sl-wall">
     <header class="topbar">
-      <button class="iconbtn" data-act="sl-close" aria-label="返回">
+      <button class="iconbtn" data-act="sl-close" aria-label="返回首页">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
       <span class="topbar-title">拍照风格库</span>
@@ -162,16 +156,28 @@
     <div class="sl-wall-stage" id="sl-wall-stage">
       <div class="sl-wall-track" id="sl-wall-track"></div>
     </div>
-    <p class="sl-wall-tip">左右滑动浏览风格 · 点开看该风格全部服装<br>下滑或点左上角返回主界面</p>
+    <p class="sl-wall-tip">左右滑动浏览风格 · 点开看里面的衣服<br>下滑返回首页</p>
   </div>
 
-  <!-- 第二层：风格全屏浏览（逐套服装左右滑，顶部/底部信息栏） -->
-  <div class="sl-browser" id="sl-browser">
-    <header class="topbar sl-chrome">
-      <button class="iconbtn" data-act="sl-back-wall" aria-label="返回风格墙">
+  <!-- 第二层：模板库（衣服缩略图网格） -->
+  <div class="sl-gridview" id="sl-gridview">
+    <header class="topbar">
+      <button class="iconbtn" data-act="sl-back-wall" aria-label="返回风格库">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
-      <span class="topbar-title" id="sl-browser-title">风格</span>
+      <span class="topbar-title" id="sl-grid-title">风格</span>
+      <span class="sl-count" id="sl-grid-count"></span>
+    </header>
+    <div class="sl-grid-scroll" id="sl-grid-scroll"></div>
+  </div>
+
+  <!-- 第三层：放大查看（左右滑动浏览上一件 / 下一件） -->
+  <div class="sl-browser" id="sl-browser">
+    <header class="topbar sl-chrome">
+      <button class="iconbtn" data-act="sl-back-grid" aria-label="返回网格">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="topbar-title" id="sl-browser-title">服装</span>
       <span class="sl-count" id="sl-count">1 / 1</span>
     </header>
     <div class="sl-stage" id="sl-stage">
