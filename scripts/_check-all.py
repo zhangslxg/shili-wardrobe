@@ -205,6 +205,50 @@ check('启动页标题为石榴照相馆', 'class="splash-title">石榴照相馆
 check('manifest 名称含石榴照相馆', '石榴照相馆' in read('manifest.webmanifest'))
 check('offline.html 品牌为石榴照相馆', '石榴照相馆' in read('offline.html'))
 
+# ---------- 7.6 衣服清单（数据管理页 · 条目级增删改） ----------
+check('index.html 含衣服清单容器 #item-list', 'id="item-list"' in html)
+check('index.html 含改名弹窗 #item-modal', 'id="item-modal"' in html)
+check('index.html 含换图输入 #item-img-input', 'id="item-img-input"' in html)
+check('数据管理页含衣服清单卡片', '衣服清单（全部条目）' in html)
+check('app.js 定义 renderItemManage', 'function renderItemManage' in appjs)
+check('app.js 定义 findItem', 'function findItem' in appjs)
+check('app.js 定义 deleteItem', 'function deleteItem' in appjs)
+check('app.js 定义 renameItem', 'function renameItem' in appjs)
+check('app.js 定义 setItemImage', 'function setItemImage' in appjs)
+check('app.js 定义 moveItemCat', 'function moveItemCat' in appjs)
+check('app.js 定义 armOrDeleteItem（二次确认）', 'function armOrDeleteItem' in appjs)
+check('app.js 定义 openItemModal / closeItemModal / submitItemRename',
+      'function openItemModal' in appjs and 'function closeItemModal' in appjs
+      and 'function submitItemRename' in appjs)
+check('app.js 定义 itemRecord（字段收口）', 'function itemRecord' in appjs)
+# 写库白名单必须与 catalog 一致：不得把 sizes / colors / tags 等商品字段写回库里
+seg_rec = appjs[appjs.index('function itemRecord'):appjs.index('function afterItemsChanged')]
+check('itemRecord 只写 6 个允许字段',
+      all(k in seg_rec for k in ['id:', 'categoryId:', 'name:', 'image:', 'desc:', 'sort:']))
+check('itemRecord 不含商品规格字段', not re.search(r'sizes|colors|tags', seg_rec))
+check('删除需二次确认（armed 态 + 定时还原）',
+      'itemDelArmed' in appjs and '确认删除' in appjs and 'itemDelTimer' in appjs)
+check('换图走同一套图片压缩 compressImage',
+      bool(re.search(r"item-img-input'\)[\s\S]{0,600}?compressImage", appjs)))
+check('写入后统一刷新 afterItemsChanged',
+      'function afterItemsChanged' in appjs
+      and "putAll('items', [next]).then(reload).then(afterItemsChanged)" in appjs)
+check('游离风格条目有占位项（防下拉静默跳风格）', '原风格已不存在' in appjs)
+check('清单顺序跟随风格顺序', 'order[a.categoryId]' in appjs)
+check('空清单有引导文案', '还没有衣服' in appjs)
+for hook in ['data-thumb-item', 'data-rename-item', 'data-del-item', 'data-move-item', 'data-item=']:
+    check('衣服清单钩子: ' + hook, hook in appjs)
+check('item-rename 有处理分支', "act === 'item-rename'" in appjs)
+check('item-modal-close 有处理分支', "act === 'item-modal-close'" in appjs)
+init_seg = appjs[appjs.index('function init()'):]
+check('init 渲染衣服清单', 'renderItemManage();' in init_seg)
+check('风格卡仍受保护：非空不可删', '该风格下已有衣服，不能删除' in appjs)
+check('风格删除按钮仅在空风格出现', '(n === 0 ?' in appjs)
+for cls in ['.item-list{', '.item-list::-webkit-scrollbar', '.item-row{', '.item-row.armed',
+            '.item-row-thumb', '.item-row-name', '.sel.item-row-cat', '.item-row-del',
+            '.item-row.armed .item-row-del', '.item-row-none']:
+    check('衣服清单样式: ' + cls, cls in css)
+
 # ---------- 8. catalog.json schema ----------
 cat = json.loads(read('catalog.json'))
 check('catalog version 为数字', isinstance(cat.get('version'), int) and cat['version'] > 1)
@@ -237,7 +281,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v10', "var CACHE = 'wardrobe-v10';" in sw)
+check('sw 版本 v11', "var CACHE = 'wardrobe-v11';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):

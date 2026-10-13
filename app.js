@@ -478,6 +478,7 @@
         renderStyleManage();
         renderImgCatSelect();
         renderStats();
+        renderItemManage();
         toast('已添加风格卡：' + name);
         if (done) done(cat);
         return cat;
@@ -521,9 +522,190 @@
         tx.onerror = function () { rej(tx.error); };
       });
     }).then(reload).then(function () {
-      renderStyleWall(); renderStyleManage(); renderImgCatSelect(); renderStats();
+      renderStyleWall(); renderStyleManage(); renderImgCatSelect(); renderStats(); renderItemManage();
       toast('已删除风格：' + c.name);
     });
+  }
+
+  /* ---------------- 衣服清单（条目级增删改）· 店主端 ----------------
+     风格卡管的是"有哪些拍摄风格"，这里管的是"每个风格里有哪些衣服"。
+     店主可对单件衣服：改名 / 换图 / 移到别的风格 / 删除。
+     写入一律走 itemRecord() 收口字段，避免历史遗留键被带进库；
+     每次写完统一 afterItemsChanged() 重渲染，保证风格墙、风格卡列表、统计一致。 */
+  var itemModalId = null;    /* 正在改名的条目 id */
+  var itemImgId = null;      /* 正在换图的条目 id（隐藏 file input 的回调用） */
+  var itemDelArmed = null;   /* 已点过一次 ×、等二次确认的条目 id */
+  var itemDelTimer = null;
+
+  function findItem(id) {
+    for (var i = 0; i < state.items.length; i++) {
+      if (state.items[i].id === id) return state.items[i];
+    }
+    return null;
+  }
+
+  /* 只允许这四个可变字段 + id / sort：与 normalizeImport 的白名单保持一致 */
+  function itemRecord(it, patch) {
+    patch = patch || {};
+    return {
+      id: it.id,
+      categoryId: patch.categoryId != null ? patch.categoryId : it.categoryId,
+      name: patch.name != null ? patch.name : it.name,
+      image: patch.image != null ? patch.image : it.image,
+      desc: it.desc || '',
+      sort: typeof it.sort === 'number' ? it.sort : 0
+    };
+  }
+
+  function afterItemsChanged() {
+    renderItemManage();
+    renderStyleManage();     /* 风格行的「n 件」和自动封面缩略图会跟着变 */
+    renderImgCatSelect();
+    renderStats();
+    if (sl.open) renderStyleWall();
+    var cm = $('#cover-modal');
+    if (cm && cm.classList.contains('open')) renderCoverModal();
+  }
+
+  function putItem(next) {
+    return putAll('items', [next]).then(reload).then(afterItemsChanged);
+  }
+
+  function renderItemManage() {
+    var box = $('#item-list');
+    if (!box) return;
+    if (!state.items.length) {
+      box.innerHTML = '<div class="item-row item-row-none">还没有衣服。用上面的「图片批量导入」选几件进来。</div>';
+      return;
+    }
+    var cats = slCats();
+    var order = {};
+    cats.forEach(function (c, i) { order[c.id] = i; });
+    /* 排成客人看到的顺序：先按风格，风格内按 sort */
+    var list = state.items.slice().sort(function (a, b) {
+      var oa = order[a.categoryId] == null ? 999 : order[a.categoryId];
+      var ob = order[b.categoryId] == null ? 999 : order[b.categoryId];
+      return oa !== ob ? oa - ob : sortBySort(a, b);
+    });
+    box.innerHTML = list.map(function (it) {
+      var known = order[it.categoryId] != null;
+      var catName = '';
+      cats.forEach(function (c) { if (c.id === it.categoryId) catName = c.name; });
+      /* 游离条目（原风格已不存在）插一条占位项并选中，
+         否则下拉会静默选中第一个风格，造成"看起来被移动了"的误解 */
+      var head = known ? '' :
+        '<option value="' + escAttr(it.categoryId || '') + '" selected>' + esc(catName || '（原风格已不存在）') + '</option>';
+      /* 显式生成 selected：用字符串 replace 打补丁会在 id 互为前缀时错位 */
+      var body = cats.map(function (c) {
+        return '<option value="' + escAttr(c.id) + '"' + (c.id === it.categoryId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+      }).join('');
+      var sel = '<select class="sel item-row-cat" data-move-item="' + escAttr(it.id) + '" aria-label="所属风格">' +
+        head + body + '</select>';
+      var armed = itemDelArmed === it.id;
+      return '<div class="item-row' + (armed ? ' armed' : '') + '" data-item="' + escAttr(it.id) + '">' +
+        '<button type="button" class="item-row-thumb" data-thumb-item="' + escAttr(it.id) + '" aria-label="换一张图">' +
+          placeholder(it) +
+          (it.image ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '') +
+        '</button>' +
+        '<span class="item-row-main">' +
+          '<button type="button" class="item-row-name" data-rename-item="' + escAttr(it.id) + '" title="点击改名">' + esc(it.name) + '</button>' +
+          sel +
+        '</span>' +
+        '<button type="button" class="item-row-del" data-del-item="' + escAttr(it.id) + '" aria-label="删除这件衣服">' +
+          (armed ? '确认删除' : '×') +
+        '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function deleteItem(id) {
+    var it = findItem(id);
+    if (!it) return Promise.resolve();
+    var name = it.name;
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('items', 'readwrite');
+        tx.objectStore('items').delete(id);
+        tx.oncomplete = res;
+        tx.onerror = function () { rej(tx.error); };
+      });
+    }).then(reload).then(function () {
+      afterItemsChanged();
+      toast('已删除：' + name);
+    }).catch(function (e) { toast('删除失败：' + e); });
+  }
+
+  /* 删除要连点两次：第一次改成"确认删除"按钮，4 秒不点自动还原 */
+  function armOrDeleteItem(id) {
+    if (itemDelArmed !== id) {
+      itemDelArmed = id;
+      renderItemManage();
+      clearTimeout(itemDelTimer);
+      itemDelTimer = setTimeout(function () {
+        if (itemDelArmed === id) { itemDelArmed = null; renderItemManage(); }
+      }, 4000);
+      toast('再点一次「确认删除」');
+      return;
+    }
+    itemDelArmed = null;
+    clearTimeout(itemDelTimer);
+    deleteItem(id);
+  }
+
+  function renameItem(id, name) {
+    var it = findItem(id);
+    if (!it) return Promise.resolve();
+    name = String(name == null ? '' : name).trim();
+    if (!name) { toast('名字不能为空'); return Promise.resolve(); }
+    if (name === it.name) { closeItemModal(); return Promise.resolve(); }
+    return putItem(itemRecord(it, { name: name })).then(function () {
+      closeItemModal();
+      toast('已改名：' + name);
+    });
+  }
+
+  function setItemImage(id, dataUrl) {
+    var it = findItem(id);
+    if (!it) return Promise.resolve();
+    var name = it.name;
+    return putItem(itemRecord(it, { image: dataUrl })).then(function () {
+      toast('已换图：' + name);
+    });
+  }
+
+  function moveItemCat(id, catId) {
+    var it = findItem(id);
+    if (!it || it.categoryId === catId) return Promise.resolve();
+    var c = null;
+    state.categories.forEach(function (x) { if (x.id === catId) c = x; });
+    if (!c) { toast('目标风格已不存在'); renderItemManage(); return Promise.resolve(); }
+    return putItem(itemRecord(it, { categoryId: catId })).then(function () {
+      toast('已移到「' + c.name + '」：' + it.name);
+    });
+  }
+
+  function openItemModal(id) {
+    var it = findItem(id);
+    var m = $('#item-modal');
+    if (!it || !m) return;
+    itemModalId = id;
+    $('#item-name').value = it.name;
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    setTimeout(function () { try { $('#item-name').select(); } catch (e) {} }, 120);
+  }
+
+  function closeItemModal() {
+    var m = $('#item-modal');
+    if (!m) return;
+    m.classList.remove('open');
+    m.setAttribute('aria-hidden', 'true');
+    itemModalId = null;
+  }
+
+  function submitItemRename() {
+    if (!itemModalId) return;
+    renameItem(itemModalId, $('#item-name').value);
   }
 
   /* ---- 添加风格卡弹窗 ---- */
@@ -717,7 +899,7 @@
         .then(function () { return putAll('items', r.items); })
         .then(reload)
         .then(function () {
-          renderStats(); renderStyleManage(); renderImgCatSelect();
+          renderStats(); renderItemManage(); renderStyleManage(); renderImgCatSelect();
           if (sl.open) renderStyleWall();
           if (silent) return;
           var msg = '导入成功：' + r.categories.length + ' 个风格，' + r.items.length + ' 件衣服';
@@ -880,7 +1062,7 @@
         .then(function () { return putAll('items', state.mode === 'replace' ? items : state.items.concat(items)); })
         .then(reload)
         .then(function () {
-          renderStats(); renderStyleManage(); renderImgCatSelect();
+          renderStats(); renderItemManage(); renderStyleManage(); renderImgCatSelect();
           if (sl.open) renderStyleWall();
           imgBusy = false;
           if (btn) btn.disabled = false;
@@ -922,6 +1104,8 @@
       else if (act === 'cover-close') { closeCoverModal(); }
       else if (act === 'cover-upload') { if ($('#cover-input')) $('#cover-input').click(); }
       else if (act === 'cover-reset') { if (coverCatId) setStyleCover(coverCatId, ''); }
+      else if (act === 'item-modal-close') { closeItemModal(); }
+      else if (act === 'item-rename') { submitItemRename(); }
       else if (act === 'dl-template') {
         download('wardrobe-template.json', { version: 1, categories: [], items: [] });
         toast('空模板已下载');
@@ -946,7 +1130,7 @@
       else if (act === 'clear') {
         if (b.classList.contains('armed')) {
           clearStore('categories').then(function () { return clearStore('items'); }).then(reload).then(function () {
-            renderStats(); renderStyleManage(); renderImgCatSelect();
+            renderStats(); renderItemManage(); renderStyleManage(); renderImgCatSelect();
             if (sl.open) renderStyleWall();
             b.classList.remove('armed'); b.textContent = '清空所有数据';
             toast('已清空全部数据');
@@ -964,6 +1148,48 @@
       var d = e.target.closest('[data-del-cat]');
       if (!d) return;
       deleteEmptyStyle(d.dataset.delCat);
+    });
+
+    /* 衣服清单：点缩略图换图 / 点名字改名 / 点 × 删除（二次确认） */
+    var ilist = $('#item-list');
+    if (ilist) {
+      ilist.addEventListener('click', function (e) {
+        var th = e.target.closest('[data-thumb-item]');
+        if (th) {
+          itemImgId = th.dataset.thumbItem;
+          var fin = $('#item-img-input');
+          if (fin) fin.click();
+          return;
+        }
+        var rn = e.target.closest('[data-rename-item]');
+        if (rn) { openItemModal(rn.dataset.renameItem); return; }
+        var dl = e.target.closest('[data-del-item]');
+        if (dl) { armOrDeleteItem(dl.dataset.delItem); return; }
+      });
+      /* 下拉换风格：change 触发，选完立即写库 */
+      ilist.addEventListener('change', function (e) {
+        var s = e.target.closest('[data-move-item]');
+        if (!s) return;
+        moveItemCat(s.dataset.moveItem, s.value);
+      });
+    }
+    /* 条目换图：隐藏 input 选完即压缩入库（与封面图同一套压缩逻辑） */
+    var iinput = $('#item-img-input');
+    if (iinput) iinput.addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      this.value = '';
+      if (!f || !itemImgId) return;
+      var id = itemImgId;
+      itemImgId = null;
+      toast('正在处理图片…');
+      compressImage(f).then(function (r) {
+        return setItemImage(id, r.dataUrl);
+      }).catch(function (err) { toast('换图失败：' + err.message); });
+    });
+    /* 改名输入框：回车即保存 */
+    var inm = $('#item-name');
+    if (inm) inm.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitItemRename(); }
     });
 
     /* 封面弹窗：从本风格衣服里挑一张（空图标的按钮不响应） */
@@ -1065,6 +1291,7 @@
     applyMode();
     reload().then(function () {
       renderStats();
+      renderItemManage();
       renderStyleManage();
       renderImgCatSelect();
       return syncCatalog();

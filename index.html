@@ -99,6 +99,12 @@
     </div>
 
     <div class="card">
+      <h3 class="card-title">衣服清单（全部条目）</h3>
+      <p class="card-tip">这里列出已导入的每一件衣服：<b>点缩略图</b>换图、<b>点名字</b>改名、名称下方的<b>下拉框</b>可把它移到别的风格、右侧 <b>×</b> 删除（要再点一次确认，防手滑）。整理完记得用下面的「导出当前数据」覆盖仓库里的 catalog.json，客人那边才会更新。</p>
+      <div class="item-list" id="item-list"></div>
+    </div>
+
+    <div class="card">
       <h3 class="card-title">导出</h3>
       <button class="btn btn-ghost btn-block" data-act="dl-template">下载空模板 JSON</button>
       <button class="btn btn-ghost btn-block" data-act="dl-data">导出当前数据（备份）</button>
@@ -215,6 +221,21 @@
   </div>
 </div>
 <input type="file" id="cover-input" accept="image/*" hidden>
+
+<!-- ============ 衣服改名弹窗（店主端） ============ -->
+<div class="modal" id="item-modal" aria-hidden="true">
+  <div class="modal-mask" data-act="item-modal-close"></div>
+  <div class="modal-box">
+    <h3 class="modal-title">重命名这件衣服</h3>
+    <p class="modal-tip">名字会显示在客人放大查看时的底栏。图片导入的名字默认取自文件名，可以在这里改成真实品类名。</p>
+    <input type="text" id="item-name" class="txt" placeholder="例如：藏青西装外套" maxlength="24">
+    <div class="modal-acts">
+      <button class="btn btn-ghost" data-act="item-modal-close">取消</button>
+      <button class="btn btn-primary" data-act="item-rename">保存</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="item-img-input" accept="image/*" hidden>
 
 <div class="toast" id="toast"></div>
 
