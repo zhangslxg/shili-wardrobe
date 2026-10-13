@@ -117,7 +117,7 @@ npx serve 衣橱App
 
 ### 升级模式：公网托管（客人离开 Wi-Fi 也能扫）
 
-把本目录部署到 GitHub Pages / Cloudflare Pages（免费），二维码内容换成 `https://<用户名>.github.io/<仓库名>/index.html`：
+把本目录部署到 GitHub Pages / Cloudflare Pages（免费），二维码内容换成 `https://zhangslxg.github.io/shili-wardrobe/index.html`：
 - Service Worker 正常注册 → 首次打开后**完全离线可用**
 - 任何网络都能扫开，不限于店内 Wi-Fi
 - 注意：catalog.json 随之公开，衣服库对外可见
@@ -191,10 +191,10 @@ npx serve 衣橱App
 
 完整步骤（含 PAT 安全发布、Actions 自动部署、真机离线验证）见 **《HTTPS+离线部署指南.md》**，摘要：
 
-- 首次发布：创建仓库 → PAT 推送（密码方式 GitHub 已禁用，PAT 不写任何文件）→ Settings → Pages → Source 选 **GitHub Actions** → 自动部署到 `https://<用户名>.github.io/<仓库名>/`
+- 首次发布：创建仓库 → PAT 推送（密码方式 GitHub 已禁用，PAT 不写任何文件）→ Settings → Pages → Source 选 **GitHub Actions** → 自动部署到 `https://zhangslxg.github.io/shili-wardrobe/`
 - **强制 HTTPS**：默认域名由 GitHub 强制启用且不可关闭；自定义域名需 DNS 生效后勾选 Enforce HTTPS
 - **全离线**：Service Worker 预缓存全部静态资源；`catalog.json` 网络优先（在线拿最新、离线用缓存）；无缓存时断网打开显示 `offline.html` 提示页
-- **长期二维码**：`python scripts/make-https-qr.py <用户名> <仓库名>` 生成，任何网络可扫
+- **长期二维码**：`python scripts/make-https-qr.py zhangslxg shili-wardrobe` 生成，任何网络可扫
 - 以后更新：`git push` 即自动上线（约 1 分钟）
 
 > Cloudflare Pages 亦可作为备选静态托管；本地 `python -m http.server` 适合开发调试。

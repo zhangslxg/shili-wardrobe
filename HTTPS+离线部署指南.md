@@ -14,7 +14,7 @@
 
 | # | 信息 | 是否必须 | 默认值/说明 |
 |---|------|---------|------------|
-| 1 | **GitHub 用户名** | ✅ 必须 | 决定网址 `https://<用户名>.github.io/<仓库名>/`，也决定二维码内容 |
+| 1 | **GitHub 用户名** | ✅ 必须 | 决定网址 `https://zhangslxg.github.io/shili-wardrobe/`，也决定二维码内容 |
 | 2 | 仓库名 | 建议确认 | 默认 `shili-wardrobe`（公开仓库，Private 仓库的 Pages 需 Pro） |
 | 3 | 自定义域名 | 可选 | 如 `yi.pifu.photo`；不用则用 github.io 默认域名，**已强制 HTTPS** |
 | 4 | 构建方式 | 已定 | **纯静态**（无 Jekyll），`.nojekyll` 已放置，Actions 原样上传 |
@@ -38,7 +38,7 @@
 
 ## 四、HTTPS 强制访问
 
-- **默认域名（`<用户名>.github.io`）**：GitHub Pages 自动签发证书并**强制 HTTPS，且该开关不可关闭**——无需任何操作即达成。
+- **默认域名（`zhangslxg.github.io`）**：GitHub Pages 自动签发证书并**强制 HTTPS，且该开关不可关闭**——无需任何操作即达成。
 - **自定义域名（可选）**：仓库 Settings → Pages → Custom domain 填入 → 等 DNS 生效（几分钟到几小时）→ 勾选 "Enforce HTTPS"（DNS 配好前该勾选项为灰）。
 - 站内**零外部请求**（无 CDN/字体/统计），不存在 mixed content，HTTPS 下无安全警告。
 
@@ -66,8 +66,8 @@
 ```bash
 cd "C:/Users/Administrator/WorkBuddy/2026-10-12-16-36-54/衣橱App"
 
-# 关联远程仓库（把 <用户名> 换成你的 GitHub 用户名）
-git remote add origin https://github.com/<用户名>/shili-wardrobe.git
+# 关联远程仓库（把 zhangslxg 换成你的 GitHub 用户名）
+git remote add origin https://github.com/zhangslxg/shili-wardrobe.git
 
 # 推送；用户名填 GitHub 用户名，密码栏粘贴第 1 步的 PAT（不是登录密码）
 git push -u origin main
@@ -81,13 +81,13 @@ git push -u origin main
 
 ### 5. 等待自动部署
 
-推送即触发 Actions：仓库 **Actions** 标签页可见 "部署到 GitHub Pages" 工作流 → 约 1-2 分钟变绿 → 访问 <https://<用户名>.github.io/shili-wardrobe/> 验证。
+推送即触发 Actions：仓库 **Actions** 标签页可见 "部署到 GitHub Pages" 工作流 → 约 1-2 分钟变绿 → 访问 <https://zhangslxg.github.io/shili-wardrobe/> 验证。
 
 ### 6. 生成长期二维码
 
 ```bash
 # 依赖：pip install qrcode
-python scripts/make-https-qr.py <用户名> shili-wardrobe
+python scripts/make-https-qr.py zhangslxg shili-wardrobe
 # 产出 店铺二维码-https.png（已在 .gitignore 中，不会进仓库）
 ```
 
@@ -101,7 +101,7 @@ git push origin main
         ├─ actions/checkout@v4        检出代码
         ├─ actions/configure-pages@v5 配置 Pages 环境
         ├─ upload-pages-artifact@v3   整个目录原样上传（无构建）
-        └─ deploy-pages@v4            发布到 https://<用户名>.github.io/<仓库名>/
+        └─ deploy-pages@v4            发布到 https://zhangslxg.github.io/shili-wardrobe/
 ```
 
 以后每次更新衣服/改代码：`git add -A && git commit -m "..." && git push` → 一分钟内自动上线。也可在 Actions 页手动 "Run workflow" 重新部署。
@@ -136,7 +136,7 @@ python -m http.server 8091 --bind 0.0.0.0
 
 ### 真机验证（部署后，必须做）
 
-1. **HTTPS**：手机浏览器打开 `https://<用户名>.github.io/shili-wardrobe/` → 地址栏有锁标，无安全警告 → 启动动画后进主界面
+1. **HTTPS**：手机浏览器打开 `https://zhangslxg.github.io/shili-wardrobe/` → 地址栏有锁标，无安全警告 → 启动动画后进主界面
 2. **安装 PWA**：Android Chrome 菜单 → 「添加至主屏幕」→ 桌面图标启动，独立窗口无地址栏
 3. **全离线**：开飞行模式 → 点桌面图标 → **仍能打开并浏览已缓存衣服**（catalog 走的是上次缓存）
 4. **离线提示页**（可选严格验证）：新手机/无痕模式 + 飞行模式首次打开 → 显示「网络开小差了」提示页，恢复网络后重试正常
