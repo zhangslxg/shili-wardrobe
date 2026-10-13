@@ -221,6 +221,12 @@ check('app.js 定义 openItemModal / closeItemModal / submitItemRename',
       'function openItemModal' in appjs and 'function closeItemModal' in appjs
       and 'function submitItemRename' in appjs)
 check('app.js 定义 itemRecord（字段收口）', 'function itemRecord' in appjs)
+check('app.js 定义 updateItem（唯一写库出口）', 'function updateItem' in appjs)
+check('app.js 定义 itemRowHTML（单行模板）', 'function itemRowHTML' in appjs)
+check('app.js 定义 syncRowImage（图片按需赋 src）', 'function syncRowImage' in appjs)
+check('app.js 定义 removeRecord（单键删除）', 'function removeRecord' in appjs)
+check('app.js 定义 errText（错误文案归一）', 'function errText' in appjs)
+check('app.js 定义 renderedOrder（就地更新指纹）', 'renderedOrder' in appjs)
 # 写库白名单必须与 catalog 一致：不得把 sizes / colors / tags 等商品字段写回库里
 seg_rec = appjs[appjs.index('function itemRecord'):appjs.index('function afterItemsChanged')]
 check('itemRecord 只写 6 个允许字段',
@@ -230,9 +236,22 @@ check('删除需二次确认（armed 态 + 定时还原）',
       'itemDelArmed' in appjs and '确认删除' in appjs and 'itemDelTimer' in appjs)
 check('换图走同一套图片压缩 compressImage',
       bool(re.search(r"item-img-input'\)[\s\S]{0,600}?compressImage", appjs)))
-check('写入后统一刷新 afterItemsChanged',
-      'function afterItemsChanged' in appjs
-      and "putAll('items', [next]).then(reload).then(afterItemsChanged)" in appjs)
+check('写入后统一刷新 afterItemsChanged', 'function afterItemsChanged' in appjs)
+seg_after = appjs[appjs.index('function afterItemsChanged'):appjs.index('function updateItem')]
+check('afterItemsChanged 不重建分类下拉（否则会重置店主已选分类）',
+      'renderImgCatSelect' not in seg_after)
+check('错误处理用双参 then（不把渲染错误误报成保存失败）',
+      'function () { afterItemsChanged(); return true; }' in appjs)
+seg_row = appjs[appjs.index('function itemRowHTML'):appjs.index('function syncRowImage')]
+check('行模板用 data-img-for（不把 base64 大图拼进 HTML 字符串）', 'data-img-for' in seg_row)
+check('行模板不再内联 onerror', 'onerror' not in seg_row)
+check('行模板不再把 image 拼进字符串', 'escAttr(it.image)' not in seg_row)
+check('图片失败改捕获阶段委托',
+      "ilist.addEventListener('error'" in appjs and '}, true);' in appjs)
+check('清单重建后还原滚动位置', 'box.scrollTop = top' in appjs)
+check('名字长度上限两处一致',
+      'var ITEM_NAME_MAX = 24' in appjs and 'maxlength="24"' in html)
+check('待确认时长用常量而非魔数', 'ITEM_ARM_MS' in appjs)
 check('游离风格条目有占位项（防下拉静默跳风格）', '原风格已不存在' in appjs)
 check('清单顺序跟随风格顺序', 'order[a.categoryId]' in appjs)
 check('空清单有引导文案', '还没有衣服' in appjs)

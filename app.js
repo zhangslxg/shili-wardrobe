@@ -73,6 +73,22 @@
       });
     });
   }
+  /* 单键删除：putAll / clearStore 之外缺的那一个（删除某一件衣服用） */
+  function removeRecord(name, key) {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(name, 'readwrite');
+        tx.objectStore(name).delete(key);
+        tx.oncomplete = res;
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
+  /* 统一的错误文案：DOMException / Error / 其它值都能变成一句人话 */
+  function errText(e) {
+    if (!e) return '未知错误';
+    return e.message || e.name || String(e);
+  }
   function getMeta(k) {
     return store('meta').then(function (s) {
       return new Promise(function (res, rej) {
@@ -530,135 +546,248 @@
   /* ---------------- 衣服清单（条目级增删改）· 店主端 ----------------
      风格卡管的是"有哪些拍摄风格"，这里管的是"每个风格里有哪些衣服"。
      店主可对单件衣服：改名 / 换图 / 移到别的风格 / 删除。
-     写入一律走 itemRecord() 收口字段，避免历史遗留键被带进库；
-     每次写完统一 afterItemsChanged() 重渲染，保证风格墙、风格卡列表、统计一致。 */
+
+     三条约定（改动前先读这三行）：
+       1) 写库只有一个出口 updateItem() —— 字段经 itemRecord() 收口，
+          失败统一 toast + 把视图拉回库里的真实状态，不会留下
+          "界面显示改了、库里其实没变"的假象；
+       2) 刷新的也只有 afterItemsChanged() 一处，且只刷真正受影响的区域；
+       3) 渲染走"顺序没变就地更新 / 顺序变了整体重建 + 还原滚动位置"，
+          改一行不会把列表滚回顶部。                                      */
+  var ITEM_ARM_MS = 4000;    /* 删除二次确认的保留时长（毫秒） */
+  var ITEM_NAME_MAX = 24;    /* 名字长度上限，与 #item-name 的 maxlength 保持一致 */
+
   var itemModalId = null;    /* 正在改名的条目 id */
   var itemImgId = null;      /* 正在换图的条目 id（隐藏 file input 的回调用） */
   var itemDelArmed = null;   /* 已点过一次 ×、等二次确认的条目 id */
-  var itemDelTimer = null;
+  var itemDelTimer = null;   /* 待确认态的自动还原定时器 */
+  var renderedOrder = '';    /* 上次渲染的行顺序指纹，用于判断能否就地更新 */
 
   function findItem(id) {
-    for (var i = 0; i < state.items.length; i++) {
-      if (state.items[i].id === id) return state.items[i];
-    }
-    return null;
+    return state.items.find(function (x) { return x.id === id; }) || null;
   }
 
-  /* 只允许这四个可变字段 + id / sort：与 normalizeImport 的白名单保持一致 */
+  /* 条目字段收口：只写这 6 个键，与 normalizeImport 的白名单、catalog schema
+     三处保持一致 —— 历史 JSON 里带来的 sizes / colors / tags 不会被写回库里 */
   function itemRecord(it, patch) {
     patch = patch || {};
+    var pick = function (key) { return patch[key] != null ? patch[key] : it[key]; };
     return {
       id: it.id,
-      categoryId: patch.categoryId != null ? patch.categoryId : it.categoryId,
-      name: patch.name != null ? patch.name : it.name,
-      image: patch.image != null ? patch.image : it.image,
+      categoryId: pick('categoryId'),
+      name: pick('name'),
+      image: pick('image'),
       desc: it.desc || '',
       sort: typeof it.sort === 'number' ? it.sort : 0
     };
   }
 
+  /* 数据变了以后统一刷新受影响的区域。
+     这里**故意不重建**「图片导入」的目标分类下拉（#img-cat）：
+     条目的增删改不会改变风格集合，重建它只会把店主已经选好的分类悄悄重置掉。
+     （风格集合真变了的地方 —— 新增/删除风格卡、导入、清空 —— 各自单独调用它。）*/
   function afterItemsChanged() {
     renderItemManage();
     renderStyleManage();     /* 风格行的「n 件」和自动封面缩略图会跟着变 */
-    renderImgCatSelect();
     renderStats();
-    if (sl.open) renderStyleWall();
+    if (sl.open) renderStyleWall();                    /* 卡片封面可能取的是第一件衣服的图 */
     var cm = $('#cover-modal');
     if (cm && cm.classList.contains('open')) renderCoverModal();
   }
 
-  function putItem(next) {
-    return putAll('items', [next]).then(reload).then(afterItemsChanged);
+  /* 唯一的写库出口：落库 → 重新载入 → 刷新。
+     用 then(ok, fail) 双参写法而不是链尾 .catch：
+     链尾 catch 会连"渲染出错"一起算成"保存失败"，让用户看到
+     "提示保存失败、列表却已经变了"的矛盾提示。                          */
+  function updateItem(next) {
+    return putAll('items', [next]).then(reload).then(
+      function () { afterItemsChanged(); return true; },
+      function (e) {
+        toast('保存失败：' + errText(e));
+        renderItemManage();                 /* 把视图拉回库里的真实归属 */
+        return false;
+      }
+    );
   }
 
+  /* 单行 HTML。注意两点：
+     · 所有用户数据都过 esc / escAttr，属性值不会逃逸出引号；
+     · <img> 只带一个 data-img-for（条目 id），**不把 base64 大图拼进字符串** ——
+       图由 syncRowImage() 渲染后从内存直接赋值，避免每次刷新都拼接
+       几百 KB × N 行的字符串（这是清单卡顿的主因）。                    */
+  function itemRowHTML(it, cats, catName, order) {
+    var known = order[it.categoryId] != null;
+    /* 游离条目（categoryId 指向已不存在的风格）必须先占一个位：
+       否则 <select> 会默认选中第一个风格，看起来像"被移动了" */
+    var placeholderOpt = known ? '' :
+      '<option value="' + escAttr(it.categoryId || '') + '" selected>' +
+        esc(catName[it.categoryId] || '（原风格已不存在）') + '</option>';
+    /* selected 显式生成：用字符串 replace 打补丁会在 id 互为前缀时错位 */
+    var opts = cats.map(function (c) {
+      return '<option value="' + escAttr(c.id) + '"' +
+        (c.id === it.categoryId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+    }).join('');
+    var armed = itemDelArmed === it.id;
+    var id = escAttr(it.id);          /* 同一个 id 要用 5 次，转义一次复用 */
+
+    return '<div class="item-row' + (armed ? ' armed' : '') + '" data-item="' + id + '">' +
+      '<button type="button" class="item-row-thumb" data-thumb-item="' + id + '" aria-label="换一张图">' +
+        placeholder(it) +
+        (it.image ? '<img draggable="false" data-img-for="' + id + '" alt="">' : '') +
+      '</button>' +
+      '<span class="item-row-main">' +
+        '<button type="button" class="item-row-name" data-rename-item="' + id + '" title="点击改名">' +
+          esc(it.name) + '</button>' +
+        '<select class="sel item-row-cat" data-move-item="' + id + '" aria-label="所属风格">' +
+          placeholderOpt + opts + '</select>' +
+      '</span>' +
+      '<button type="button" class="item-row-del" data-del-item="' + id + '" aria-label="删除这件衣服">' +
+        (armed ? '确认删除' : '×') + '</button>' +
+    '</div>';
+  }
+
+  /* 把行里的 <img> 与数据对齐。用"长度 + 前 32 字符"做指纹比较，
+     避免每次渲染都拿几百 KB 的 dataURL 做全量字符串比对。             */
+  function syncRowImage(row, it) {
+    if (!row || !it) return;
+    var img = row.querySelector('img');
+    var want = it.image || '';
+    if (!want) {
+      if (img) img.parentNode.removeChild(img);   /* 图被清空时别留下破图 */
+      return;
+    }
+    if (!img) {
+      img = document.createElement('img');
+      img.draggable = false;
+      img.alt = '';
+      img.setAttribute('data-img-for', it.id);
+      var thumb = row.querySelector('.item-row-thumb');
+      if (!thumb) return;
+      thumb.appendChild(img);
+    }
+    var sig = want.length + ':' + want.slice(0, 32);
+    if (img.getAttribute('data-sig') !== sig) {
+      img.setAttribute('data-sig', sig);
+      img.src = want;
+    }
+  }
+
+  /* 渲染清单。两条路径：
+     · 行顺序没变（改名 / 换图 / 进出待删态）→ 只改行内变化的局部，
+       不重建节点，滚动位置、图片解码结果、下拉选择全都保住；
+     · 行顺序变了（删除 / 移风格）→ 整体重建，重建后把滚动位置还原。  */
   function renderItemManage() {
     var box = $('#item-list');
     if (!box) return;
+
     if (!state.items.length) {
       box.innerHTML = '<div class="item-row item-row-none">还没有衣服。用上面的「图片批量导入」选几件进来。</div>';
+      renderedOrder = '';
       return;
     }
+
     var cats = slCats();
-    var order = {};
+    var order = {}, catName = {};
     cats.forEach(function (c, i) { order[c.id] = i; });
-    /* 排成客人看到的顺序：先按风格，风格内按 sort */
+    cats.forEach(function (c) { catName[c.id] = c.name; });
+
+    /* 排成客人看到的顺序：先按风格墙顺序，风格内按 sort */
     var list = state.items.slice().sort(function (a, b) {
       var oa = order[a.categoryId] == null ? 999 : order[a.categoryId];
       var ob = order[b.categoryId] == null ? 999 : order[b.categoryId];
       return oa !== ob ? oa - ob : sortBySort(a, b);
     });
+    var seq = list.map(function (it) { return it.id; });
+    var nextOrder = seq.join('\u0001');   /* 用不可见字符分隔，免得 "a,b" 与 "a,bc" 撞车 */
+
+    /* DOM 里已有的行（按 data-item 认领，不用选择器拼 id，省掉转义问题） */
+    var byId = {};
+    $$('#item-list .item-row[data-item]').forEach(function (r) { byId[r.dataset.item] = r; });
+
+    var canPatch = nextOrder === renderedOrder &&
+      seq.every(function (id) { return !!byId[id]; });
+
+    if (canPatch) {
+      list.forEach(function (it) {
+        var row = byId[it.id];
+        var armed = itemDelArmed === it.id;
+        if (row.classList.contains('armed') !== armed) row.classList.toggle('armed', armed);
+
+        var delBtn = row.querySelector('.item-row-del');
+        var delTxt = armed ? '确认删除' : '×';
+        if (delBtn && delBtn.textContent !== delTxt) delBtn.textContent = delTxt;
+
+        var nameBtn = row.querySelector('.item-row-name');
+        if (nameBtn && nameBtn.textContent !== it.name) nameBtn.textContent = it.name;
+
+        var sel = row.querySelector('.item-row-cat');
+        if (sel && sel.value !== it.categoryId) sel.value = it.categoryId;
+
+        syncRowImage(row, it);
+      });
+      return;
+    }
+
+    var top = box.scrollTop;              /* 重建前记住滚动位置 */
     box.innerHTML = list.map(function (it) {
-      var known = order[it.categoryId] != null;
-      var catName = '';
-      cats.forEach(function (c) { if (c.id === it.categoryId) catName = c.name; });
-      /* 游离条目（原风格已不存在）插一条占位项并选中，
-         否则下拉会静默选中第一个风格，造成"看起来被移动了"的误解 */
-      var head = known ? '' :
-        '<option value="' + escAttr(it.categoryId || '') + '" selected>' + esc(catName || '（原风格已不存在）') + '</option>';
-      /* 显式生成 selected：用字符串 replace 打补丁会在 id 互为前缀时错位 */
-      var body = cats.map(function (c) {
-        return '<option value="' + escAttr(c.id) + '"' + (c.id === it.categoryId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
-      }).join('');
-      var sel = '<select class="sel item-row-cat" data-move-item="' + escAttr(it.id) + '" aria-label="所属风格">' +
-        head + body + '</select>';
-      var armed = itemDelArmed === it.id;
-      return '<div class="item-row' + (armed ? ' armed' : '') + '" data-item="' + escAttr(it.id) + '">' +
-        '<button type="button" class="item-row-thumb" data-thumb-item="' + escAttr(it.id) + '" aria-label="换一张图">' +
-          placeholder(it) +
-          (it.image ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '') +
-        '</button>' +
-        '<span class="item-row-main">' +
-          '<button type="button" class="item-row-name" data-rename-item="' + escAttr(it.id) + '" title="点击改名">' + esc(it.name) + '</button>' +
-          sel +
-        '</span>' +
-        '<button type="button" class="item-row-del" data-del-item="' + escAttr(it.id) + '" aria-label="删除这件衣服">' +
-          (armed ? '确认删除' : '×') +
-        '</button>' +
-      '</div>';
+      return itemRowHTML(it, cats, catName, order);
     }).join('');
+    var itemById = {};
+    list.forEach(function (it) { itemById[it.id] = it; });
+    $$('#item-list img[data-img-for]').forEach(function (img) {
+      syncRowImage(img.closest('.item-row'), itemById[img.getAttribute('data-img-for')]);
+    });
+    renderedOrder = nextOrder;
+    box.scrollTop = top;                  /* 还原，改一件不会跳回顶部 */
   }
 
   function deleteItem(id) {
     var it = findItem(id);
     if (!it) return Promise.resolve();
-    var name = it.name;
-    return openDB().then(function (db) {
-      return new Promise(function (res, rej) {
-        var tx = db.transaction('items', 'readwrite');
-        tx.objectStore('items').delete(id);
-        tx.oncomplete = res;
-        tx.onerror = function () { rej(tx.error); };
-      });
-    }).then(reload).then(function () {
-      afterItemsChanged();
-      toast('已删除：' + name);
-    }).catch(function (e) { toast('删除失败：' + e); });
+    var label = it.name;                 /* 先取出：reload 会换掉整个数组 */
+    return removeRecord('items', id).then(reload).then(
+      function () {
+        /* 到这一步数据已经删掉了，后续渲染即便出错也不该说"删除失败" */
+        afterItemsChanged();
+        toast('已删除：' + label);
+      },
+      function (e) {
+        toast('删除失败：' + errText(e));
+        renderItemManage();
+      }
+    );
   }
 
-  /* 删除要连点两次：第一次改成"确认删除"按钮，4 秒不点自动还原 */
+  /* 删除要连点两次：第一次把按钮变成「确认删除」，ITEM_ARM_MS 内不点即自动还原。
+     同一时刻只允许一行处于待确认态 —— 点别行的 × 会自动取消上一行。 */
   function armOrDeleteItem(id) {
-    if (itemDelArmed !== id) {
-      itemDelArmed = id;
-      renderItemManage();
+    if (itemDelArmed === id) {           /* 第二次点击：真删 */
+      itemDelArmed = null;
       clearTimeout(itemDelTimer);
-      itemDelTimer = setTimeout(function () {
-        if (itemDelArmed === id) { itemDelArmed = null; renderItemManage(); }
-      }, 4000);
-      toast('再点一次「确认删除」');
+      deleteItem(id);
       return;
     }
-    itemDelArmed = null;
+    itemDelArmed = id;                   /* 第一次点击：进入待确认 */
     clearTimeout(itemDelTimer);
-    deleteItem(id);
+    itemDelTimer = setTimeout(function () {
+      if (itemDelArmed !== id) return;   /* 期间已经点了别的行，不必再管 */
+      itemDelArmed = null;
+      renderItemManage();
+    }, ITEM_ARM_MS);
+    renderItemManage();
+    toast('再点一次「确认删除」');
   }
 
-  function renameItem(id, name) {
+  function renameItem(id, rawName) {
     var it = findItem(id);
     if (!it) return Promise.resolve();
-    name = String(name == null ? '' : name).trim();
+    /* 长度在这里再夹一次：maxlength 只拦键盘输入，
+       它拦不住"用脚本塞进来的值"和 JSON 导入时就超长的旧名字 */
+    var name = String(rawName == null ? '' : rawName).trim().slice(0, ITEM_NAME_MAX);
     if (!name) { toast('名字不能为空'); return Promise.resolve(); }
     if (name === it.name) { closeItemModal(); return Promise.resolve(); }
-    return putItem(itemRecord(it, { name: name })).then(function () {
+    return updateItem(itemRecord(it, { name: name })).then(function (done) {
+      if (!done) return;                 /* 失败时 updateItem 已经报过错，弹窗留着让店主重试 */
       closeItemModal();
       toast('已改名：' + name);
     });
@@ -667,39 +796,46 @@
   function setItemImage(id, dataUrl) {
     var it = findItem(id);
     if (!it) return Promise.resolve();
-    var name = it.name;
-    return putItem(itemRecord(it, { image: dataUrl })).then(function () {
-      toast('已换图：' + name);
+    var label = it.name;
+    return updateItem(itemRecord(it, { image: dataUrl })).then(function (done) {
+      if (done) toast('已换图：' + label);
     });
   }
 
   function moveItemCat(id, catId) {
     var it = findItem(id);
     if (!it || it.categoryId === catId) return Promise.resolve();
-    var c = null;
-    state.categories.forEach(function (x) { if (x.id === catId) c = x; });
-    if (!c) { toast('目标风格已不存在'); renderItemManage(); return Promise.resolve(); }
-    return putItem(itemRecord(it, { categoryId: catId })).then(function () {
-      toast('已移到「' + c.name + '」：' + it.name);
+    var cat = state.categories.find(function (x) { return x.id === catId; });
+    if (!cat) {
+      toast('目标风格已不存在');
+      renderItemManage();                /* 下拉回到库里的真实归属 */
+      return Promise.resolve();
+    }
+    var label = it.name;
+    return updateItem(itemRecord(it, { categoryId: catId })).then(function (done) {
+      /* 失败同理：updateItem 里已经重渲染，下拉会自动跳回原来的风格 */
+      if (done) toast('已移到「' + cat.name + '」：' + label);
     });
   }
 
   function openItemModal(id) {
     var it = findItem(id);
-    var m = $('#item-modal');
-    if (!it || !m) return;
+    var modal = $('#item-modal');
+    var input = $('#item-name');
+    if (!it || !modal || !input) return;
     itemModalId = id;
-    $('#item-name').value = it.name;
-    m.classList.add('open');
-    m.setAttribute('aria-hidden', 'false');
-    setTimeout(function () { try { $('#item-name').select(); } catch (e) {} }, 120);
+    input.value = it.name;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    /* 等过渡起步后再聚焦，否则部分浏览器会顺带把页面滚一下 */
+    setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 120);
   }
 
   function closeItemModal() {
-    var m = $('#item-modal');
-    if (!m) return;
-    m.classList.remove('open');
-    m.setAttribute('aria-hidden', 'true');
+    var modal = $('#item-modal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
     itemModalId = null;
   }
 
@@ -1153,24 +1289,31 @@
     /* 衣服清单：点缩略图换图 / 点名字改名 / 点 × 删除（二次确认） */
     var ilist = $('#item-list');
     if (ilist) {
+      /* 图片加载失败 → 打上 img-err，露出底下早就铺好的占位色块。
+         error 事件不冒泡，只能在捕获阶段听；这样也省掉了每张图各带一个
+         内联 onerror 属性（少 N 份重复代码，对将来的 CSP 也更友好）。 */
+      ilist.addEventListener('error', function (e) {
+        var t = e.target;
+        if (t && t.tagName === 'IMG') t.classList.add('img-err');
+      }, true);
       ilist.addEventListener('click', function (e) {
         var th = e.target.closest('[data-thumb-item]');
         if (th) {
-          itemImgId = th.dataset.thumbItem;
+          itemImgId = th.getAttribute('data-thumb-item');
           var fin = $('#item-img-input');
           if (fin) fin.click();
           return;
         }
         var rn = e.target.closest('[data-rename-item]');
-        if (rn) { openItemModal(rn.dataset.renameItem); return; }
+        if (rn) { openItemModal(rn.getAttribute('data-rename-item')); return; }
         var dl = e.target.closest('[data-del-item]');
-        if (dl) { armOrDeleteItem(dl.dataset.delItem); return; }
+        if (dl) { armOrDeleteItem(dl.getAttribute('data-del-item')); return; }
       });
       /* 下拉换风格：change 触发，选完立即写库 */
       ilist.addEventListener('change', function (e) {
         var s = e.target.closest('[data-move-item]');
         if (!s) return;
-        moveItemCat(s.dataset.moveItem, s.value);
+        moveItemCat(s.getAttribute('data-move-item'), s.value);
       });
     }
     /* 条目换图：隐藏 input 选完即压缩入库（与封面图同一套压缩逻辑） */
@@ -1178,13 +1321,13 @@
     if (iinput) iinput.addEventListener('change', function () {
       var f = this.files && this.files[0];
       this.value = '';
-      if (!f || !itemImgId) return;
       var id = itemImgId;
       itemImgId = null;
+      if (!f || !id) return;
       toast('正在处理图片…');
-      compressImage(f).then(function (r) {
-        return setItemImage(id, r.dataUrl);
-      }).catch(function (err) { toast('换图失败：' + err.message); });
+      compressImage(f)
+        .then(function (r) { return setItemImage(id, r.dataUrl); })
+        .catch(function (err) { toast('换图失败：' + errText(err)); });
     });
     /* 改名输入框：回车即保存 */
     var inm = $('#item-name');
