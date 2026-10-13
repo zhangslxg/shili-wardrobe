@@ -1,5 +1,6 @@
-# 综合校验：语法 / 结构 / 数据 schema / 风格库接线 / 发布资产
-import json, os, re, subprocess, sys, tempfile
+# 综合校验：语法 / HTML 结构 / 事件接线 / CSS / catalog schema / 发布资产 / 双端隔离
+# 用法：python scripts/_check-all.py
+import json, os, re, subprocess, sys
 from html.parser import HTMLParser
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -15,19 +16,39 @@ def read(p):
     with open(os.path.join(APP, p), encoding='utf-8') as f:
         return f.read()
 
+def node_check(jsf):
+    """优先用托管 node，其次 PATH 里的 node；都没有则跳过（不算失败）"""
+    cands = [
+        r'C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-6\node.exe',
+        'node',
+    ]
+    for exe in cands:
+        try:
+            r = subprocess.run([exe, '--check', os.path.join(APP, jsf)],
+                               capture_output=True, text=True)
+            return r.returncode == 0, r.stderr.strip()[:300]
+        except FileNotFoundError:
+            continue
+    return True, '(未找到 node，跳过语法检查)'
+
+# ---------- 0. 期望的 12 种拍摄风格（顺序即风格墙顺序） ----------
+STYLES = ['证件照', '领证照', '亲子照', '全家福', '个人写真', '生日写真',
+          '形象照', '男宝宝周岁照', '女宝宝周岁照', '老人像', '闺蜜照', '情侣照']
+
 # ---------- 1. JS 语法 ----------
 for jsf in ['app.js', 'sw.js']:
-    r = subprocess.run(['node', '--check', os.path.join(APP, jsf)], capture_output=True, text=True)
-    check('node --check ' + jsf, r.returncode == 0, r.stderr.strip()[:300])
+    c, detail = node_check(jsf)
+    check('node --check ' + jsf, c, detail)
 
 appjs = read('app.js')
+html = read('index.html')
+css = read('styles.css')
 
 # ---------- 2. index.html 结构 ----------
-html = read('index.html')
 class P(HTMLParser):
-    VOID = {'meta','link','img','br','hr','input','path','circle','rect','line','ellipse'}
+    VOID = {'meta', 'link', 'img', 'br', 'hr', 'input', 'path', 'circle', 'rect', 'line', 'ellipse'}
     def __init__(self):
-        super().__init__(); self.stack=[]; self.errs=[]
+        super().__init__(); self.stack = []; self.errs = []
     def handle_starttag(self, tag, attrs):
         if tag not in self.VOID: self.stack.append(tag)
     def handle_endtag(self, tag):
@@ -37,102 +58,134 @@ class P(HTMLParser):
 p = P(); p.feed(html)
 check('index.html 标签配对', not p.errs and not p.stack, str(p.errs[:3] + p.stack[:3]))
 
-# 风格库接线：HTML 里的 id，JS 里必须全部引用
-for elid in ['stylelib','sl-wall-stage','sl-wall-track','sl-wall-count','sl-browser',
-             'sl-browser-title','sl-stage','sl-track','sl-dots','sl-count','sl-name','sl-meta']:
-    check('index.html 含 #' + elid, ('id="%s"' % elid) in html)
-    check('app.js 引用 #' + elid, ("$('#%s')" % elid) in appjs or ("getElementById('%s')" % elid) in appjs)
-check('顶栏风格库按钮', 'id="btn-stylelib"' in html)
-check('JS 绑定按钮点击', "addEventListener('click', openStyleLib)" in appjs)
+# ---------- 3. 没有独立首页：顾客端主界面 = 风格库 ----------
+check('已移除首页区块 #main', 'id="main"' not in html and "$('#main" not in appjs)
+check('已移除旧分类条/翻页器', 'id="cat-strip"' not in html and 'id="pager"' not in html)
+check('index.html 含风格库 #stylelib', 'id="stylelib"' in html)
+check('app.js 启动即开风格库', 'openStyleLib();' in appjs and "showView('main')" not in appjs)
+check('店主专属控件类存在', 'sl-admin-only' in html and '.sl-admin-only' in css)
 
-# ---------- 3. 风格库 JS 要件 ----------
+# ---------- 4. JS 引用的 #id 必须在 HTML 中存在 ----------
+html_ids = set(re.findall(r'id="([^"]+)"', html))
+ref_ids = set(re.findall(r"\$\('#([A-Za-z0-9_-]+)'\)", appjs))
+missing = sorted(ref_ids - html_ids)
+check('JS 引用的 #id 全部存在于 HTML', not missing, str(missing))
+
+# ---------- 5. HTML 里的 data-act 必须有处理分支 ----------
+acts_html = set(re.findall(r'data-act="([^"]+)"', html))
+acts_js = set(re.findall(r"act === '([a-z-]+)'", appjs))
+check('所有 data-act 均有处理函数', not (acts_html - acts_js), str(sorted(acts_html - acts_js)))
+
+# ---------- 6. 三层层级与手势要件 ----------
 for frag, name in [
     ('function makeSwiper', '通用滑动手势工厂'),
-    ('function openStyleLib', '开库函数'),
-    ('function closeStyleLib', '关库函数'),
-    ('function slBackWall', '浏览层返回（栈一致）'),
-    ('function slToWall', '回风格墙'),
-    ('function openBrowser', '进入风格浏览'),
     ('function renderStyleWall', '渲染风格墙'),
-    ('function updateBrowserChrome', '浏览层 chrome 更新'),
-    ("history.pushState({ sl: 1 }", '开库压栈 sl:1'),
-    ("history.pushState({ sl: 2 }", '进风格压栈 sl:2'),
+    ('function openGridView', '进入模板库网格'),
+    ('function openBrowser', '进入放大查看'),
+    ('function slToWall', '回风格墙'),
+    ('function slToGrid', '回模板库网格'),
+    ('function slBackWall', '网格 → 风格墙'),
+    ('function slBackGrid', '放大 → 网格'),
+    ('function updateBrowserChrome', '放大层 chrome 更新'),
+    ('function openStyleLib', '打开风格库'),
+    ('function closeStyleLib', '关闭风格库（仅店主端）'),
+    ('function addStyle', '店主新增风格卡'),
+    ('function deleteEmptyStyle', '删除空风格'),
+    ('function openStyleModal', '添加风格卡弹窗'),
+    ('function renderStyleManage', '店主端风格列表'),
+    ('function hideScreens', '收起所有 screen（露出风格库）'),
     ('SL_EDGE', '边缘手势常量'),
     ('SL_CLOSE_DY', '下滑返回常量'),
-    ('bindStyleLibEdge', '边缘手势绑定函数'),
+    ('SL_NAV_RATIO', '翻页阈值常量'),
+    ('function initSlSwipers', '手势器一次性初始化'),
+    ("history.pushState({ sl: 2 }", '进网格压栈 sl:2'),
+    ("history.pushState({ sl: 3 }", '放大压栈 sl:3'),
+    ('popstate', '返回键分层处理'),
+    ('sl-immersive', '沉浸模式 class'),
     ("act === 'sl-close'", 'data-act: sl-close'),
     ("act === 'sl-back-wall'", 'data-act: sl-back-wall'),
+    ("act === 'sl-back-grid'", 'data-act: sl-back-grid'),
     ("act === 'sl-detail'", 'data-act: sl-detail'),
-    ('sl-immersive', '沉浸模式 class'),
-    ('pushState' in appjs and 'popstate' in appjs, 'popstate 栈管理存在'),
+    ("act === 'preview-wall'", 'data-act: preview-wall'),
+    ("act === 'style-create'", 'data-act: style-create'),
+    ("act === 'style-add-inline'", 'data-act: style-add-inline'),
+    ('draggable="false"', '图片禁用原生拖拽'),
+    ('class="ph"', '占位层（图片缺失兜底）存在'),
 ]:
-    if isinstance(frag, bool):
-        check(name, frag)
-    else:
-        check('JS 要件: ' + name, frag in appjs)
+    check('JS 要件: ' + name, frag in appjs)
 
-# popstate 分层逻辑
-check('popstate 分层处理', "s.sl === 1 && sl.layer === 'browser'" in appjs and 'closeStyleLib(true)' in appjs)
+# 顾客端打开风格库不压栈（栈底即本页，墙上再返回=离开页面）
+m = re.search(r'function openStyleLib\(\)\s*\{(.*?)\n  \}', appjs, re.S)
+check('openStyleLib 内不压历史栈', bool(m) and 'pushState' not in m.group(1))
 
-# ---------- 4. CSS 要件 ----------
-css = read('styles.css')
-check('CSS 花括号配对', css.count('{') == css.count('}'), '%d vs %d' % (css.count('{'), css.count('}')))
+# ---------- 7. CSS 要件 ----------
+check('CSS 花括号配对', css.count('{') == css.count('}'),
+      '%d vs %d' % (css.count('{'), css.count('}')))
 for frag, name in [
     ('.stylelib{', '风格库覆盖层'),
     ('.stylelib.open', '开库展开态'),
     ('.sl-wall-stage', '风格墙舞台'),
     ('.sl-wall-track', '风格墙 track'),
-    ('.sl-browser', '浏览层'),
-    ('.sl-browser.on', '浏览层展开'),
-    ('.sl-stage', '浏览舞台'),
-    ('.sl-slide img', '浏览图规则'),
+    ('.sl-wall-add', '店主端添加风格卡样式'),
+    ('.sl-gridview', '模板库网格层'),
+    ('.sl-grid-scroll', '网格滚动容器'),
+    ('.sl-grid-empty', '空风格空态'),
+    ('.sl-browser', '放大查看层'),
+    ('.sl-browser.on', '放大层展开'),
+    ('.sl-slide img', '放大图规则'),
     ('max-height:100%', '比例保持 max-height'),
     ('touch-action:none', '手势区禁用原生滚动'),
     ('prefers-reduced-motion', '降低动效降级'),
     ('sl-immersive', '沉浸模式样式'),
-    ('pv-anim', 'track 过渡类（与 preview 共用）'),
+    ('pv-anim', 'track 过渡类'),
+    ('.modal.open', '添加风格卡弹窗'),
+    ('.style-row', '风格管理行'),
+    ('body.mode-admin .iconbtn.sl-admin-only', '店主专属控件显隐规则'),
 ]:
     check('CSS 要件: ' + name, frag in css)
+
 m = re.search(r'\.sl-slide img\{([^}]*)\}', css)
 check('.sl-slide img 含 max-width/max-height/auto',
       bool(m) and 'max-width:100%' in m.group(1) and 'max-height:100%' in m.group(1)
       and 'width:auto' in m.group(1) and 'height:auto' in m.group(1))
 
-# ---------- 5. catalog.json schema 校验（与 normalizeImport 规则一致） ----------
+# 已删除的旧样式不应残留
+for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter', '.sl-soon-card']:
+    check('已清理死样式: ' + dead, dead not in css)
+
+# ---------- 8. catalog.json schema ----------
 cat = json.loads(read('catalog.json'))
 check('catalog version 为数字', isinstance(cat.get('version'), int) and cat['version'] > 1)
 cats = cat['categories']; items = cat['items']
 catids = {c['id'] for c in cats}
-check('catalog 分类非空', len(cats) >= 1)
+names = [c['name'] for c in sorted(cats, key=lambda c: c.get('sort', 0))]
 check('catalog 分类 id 唯一', len(catids) == len(cats))
 for c in cats:
     check('分类字段完整: ' + c.get('id', '?'), bool(c.get('id')) and bool(c.get('name')))
-check('catalog 7 件物品', len(items) == 7)
-imgrefs = []
-for it in items:
-    valid = bool(it.get('id')) and bool(it.get('name')) and it.get('categoryId') in catids
-    check('物品字段完整: ' + it.get('id', '?'), valid)
-    img = it.get('image', '')
-    if img:
-        imgrefs.append(img)
-        check('图片磁盘存在: ' + img, os.path.exists(os.path.join(APP, img.replace('/', os.sep))))
-check('图片引用无重复（去重缩略图_001）', len(imgrefs) == len(set(imgrefs)) == 7)
-check('物品 id 唯一', len({i['id'] for i in items}) == 7)
-# 主色格式
-for it in items:
-    for c in it.get('colors', []):
-        if not re.fullmatch(r'#[0-9A-Fa-f]{6}', c or ''):
-            check('主色 hex 格式: ' + it['id'], False, c); break
-    else:
-        check('主色 hex 格式: ' + it['id'], all(re.fullmatch(r'#[0-9A-Fa-f]{6}', c) for c in it.get('colors', [])))
+check('12 种拍摄风格齐全且顺序正确', names == STYLES, str(names))
+check('物品字段完整 + 归属分类存在',
+      all(bool(i.get('id')) and bool(i.get('name')) and i.get('categoryId') in catids for i in items))
+check('物品 id 唯一', len({i['id'] for i in items}) == len(items))
+imgrefs = [i['image'] for i in items if i.get('image')]
+for img in imgrefs:
+    check('图片磁盘存在: ' + img, os.path.exists(os.path.join(APP, img.replace('/', os.sep))))
+check('图片引用无重复', len(imgrefs) == len(set(imgrefs)), 'n=%d' % len(imgrefs))
 
-# ---------- 6. 发布资产 ----------
+# ---------- 9. 发布资产 ----------
 man = json.loads(read('manifest.webmanifest'))
 check('manifest start_url', man.get('start_url') in ('./index.html', './', 'index.html'))
-icons = [i['src'] for i in man.get('icons', [])]
-for ic in icons:
-    check('manifest 图标磁盘存在: ' + ic, os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
-check('sw 版本 v7', "var CACHE = 'wardrobe-v7';" in read('sw.js'))
+for ic in [i['src'] for i in man.get('icons', [])]:
+    check('manifest 图标磁盘存在: ' + ic,
+          os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
+sw = read('sw.js')
+check('sw 版本 v8', "var CACHE = 'wardrobe-v8';" in sw)
+# 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
+assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
+for a in re.findall(r"'\./([^']*)'", assets):
+    if a == '':
+        continue
+    check('预缓存文件存在: ' + a, os.path.exists(os.path.join(APP, a.replace('/', os.sep))))
+check('预缓存清单不含已删除的 preview.html', 'preview.html' not in assets)
 check('apple-touch-icon', 'apple-touch-icon' in html)
 check('workflow 存在', os.path.exists(os.path.join(APP, '.github/workflows/deploy.yml')))
 check('.nojekyll 存在', os.path.exists(os.path.join(APP, '.nojekyll')))

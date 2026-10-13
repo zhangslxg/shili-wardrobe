@@ -1,7 +1,7 @@
 {
-  "name": "衣橱 · 轻选衣",
-  "short_name": "衣橱",
-  "description": "零成本衣服展示应用：滑动切换分类，点击浏览全部服装",
+  "name": "照相馆选衣",
+  "short_name": "选衣",
+  "description": "照相馆服装挑选：左右滑动浏览拍摄风格，点开挑衣服",
   "lang": "zh-CN",
   "id": "wardrobe-app",
   "start_url": "./index.html",

@@ -116,130 +116,9 @@ img{display:block}
 .iconbtn:active{transform:scale(.9);color:var(--primary-2)}
 .iconbtn svg{width:19px;height:19px}
 
-/* ---------- 分类条 ---------- */
-.cat-strip{
-  flex:0 0 auto;display:flex;gap:8px;
-  padding:2px 16px 12px;overflow-x:auto;
-  scrollbar-width:none;
-}
-.cat-strip::-webkit-scrollbar{display:none}
-.cat-chip{
-  flex:0 0 auto;display:flex;align-items:center;gap:6px;
-  height:34px;padding:0 14px;border-radius:999px;
-  background:var(--surface-2);border:1px solid var(--outline);
-  color:var(--text-2);font-size:13px;white-space:nowrap;
-  transition:all .2s;
-}
-.cat-chip i{font-style:normal;font-size:11px;color:var(--text-3)}
-.cat-chip.on{
-  background:linear-gradient(150deg,var(--primary),var(--primary-3));
-  border-color:transparent;color:#fff;
-  box-shadow:0 4px 14px rgba(139,92,246,.35);
-}
-.cat-chip.on i{color:rgba(255,255,255,.75)}
-
-/* ---------- 分类翻页 ---------- */
-.pager{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none}
-.pager::-webkit-scrollbar{display:none}
-.page{flex:0 0 100%;scroll-snap-align:start;overflow-y:auto;scrollbar-width:none}
-.page::-webkit-scrollbar{display:none}
-.page-hero{padding:6px 20px 14px}
-.page-cat{font-size:26px;font-weight:700;letter-spacing:1px}
-.page-sub{margin-top:4px;font-size:12.5px;color:var(--text-2);letter-spacing:.5px}
-.grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:12px;
-  padding:0 16px calc(28px + var(--safe-b));
-}
-.grid-empty{
-  grid-column:1 / -1;text-align:center;color:var(--text-3);
-  font-size:13px;padding:48px 0;
-}
-
-/* ---------- 服装卡片 ---------- */
-.card{
-  display:flex;flex-direction:column;text-align:left;
-  background:var(--surface);border:1px solid var(--outline);
-  border-radius:var(--radius);overflow:hidden;
-  transition:transform .15s,border-color .15s;
-}
-.card:active{transform:scale(.97);border-color:var(--primary-3)}
-.card-img{position:relative;aspect-ratio:3 / 4;background:var(--surface-2)}
-.card-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.card-img img.img-err{display:none}
+/* ---------- 占位底（图片缺失 / 未加载时露出的首字色块） ---------- */
 .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .ph span{font-size:34px;font-weight:600;color:rgba(255,255,255,.32);letter-spacing:2px}
-.card-body{padding:10px 12px 12px}
-.card-name{
-  font-size:13.5px;font-weight:500;line-height:1.35;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-}
-.card-row{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
-.card-row i{
-  font-style:normal;font-size:10.5px;color:var(--text-2);
-  background:var(--surface-3);border-radius:6px;padding:2px 7px;
-}
-
-/* ---------- 滑动提示 ---------- */
-.swipe-hint{
-  position:absolute;left:50%;bottom:calc(18px + var(--safe-b));transform:translateX(-50%);
-  display:flex;align-items:center;gap:7px;
-  font-size:12px;color:var(--text-3);letter-spacing:1px;
-  padding:8px 14px;border-radius:999px;
-  background:rgba(20,17,31,.82);border:1px solid var(--outline);
-  backdrop-filter:blur(8px);
-  transition:opacity .5s;pointer-events:none;
-}
-.swipe-hint svg{width:13px;height:13px}
-.swipe-hint.hide{opacity:0}
-
-/* ---------- 空状态 ---------- */
-.empty{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:8px;padding:32px;text-align:center;
-}
-.empty-ic{
-  width:76px;height:76px;border-radius:24px;
-  background:var(--surface-2);border:1px solid var(--outline);
-  display:flex;align-items:center;justify-content:center;margin-bottom:10px;
-}
-.empty-ic svg{width:34px;height:34px;stroke:var(--primary-2)}
-.empty h2{font-size:18px;font-weight:600}
-.empty p{font-size:13px;color:var(--text-2);margin-bottom:14px}
-.empty .btn{width:200px;margin-bottom:8px}
-
-/* ---------- 顾客首页（中性，非电商店铺） ---------- */
-.home{
-  flex:1;display:flex;flex-direction:column;
-  padding:0 18px calc(24px + var(--safe-b));overflow-y:auto;scrollbar-width:none;
-}
-.home::-webkit-scrollbar{display:none}
-.home-hero{padding:26px 4px 18px}
-.home-h{font-size:24px;font-weight:700;letter-spacing:.5px;line-height:1.35}
-.home-sub{margin-top:10px;font-size:13px;color:var(--text-2);line-height:1.7}
-.home-enter{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  height:54px;border-radius:16px;font-size:15.5px;font-weight:600;color:#fff;
-  background:linear-gradient(150deg,var(--primary),var(--primary-3));
-  box-shadow:0 8px 26px rgba(139,92,246,.4);
-  transition:transform .15s,filter .15s;
-}
-.home-enter:active{transform:scale(.97)}
-.home-enter svg{width:18px;height:18px}
-.home-styles{margin-top:22px}
-.home-tip{font-size:13px;color:var(--text-2);margin:4px 4px 12px}
-.home-style{
-  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--surface);border:1px solid var(--outline);border-radius:14px;
-  padding:10px;margin-bottom:10px;
-  transition:border-color .15s,transform .15s;
-}
-.home-style:active{border-color:var(--primary-3);transform:scale(.99)}
-.home-style-cover{width:54px;height:54px;border-radius:11px;overflow:hidden;flex:0 0 auto;background:var(--surface-2);position:relative}
-.home-style-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.home-style-cover img.img-err{display:none}
-.home-style span{font-size:14.5px;font-weight:500;flex:1}
-.home-style i{font-style:normal;font-size:11px;color:var(--text-3)}
-.home-empty{text-align:center;color:var(--text-3);font-size:13px;padding:40px 0}
 
 /* ---------- 详情页 ---------- */
 .detail{animation:slideIn .28s cubic-bezier(.2,0,0,1)}
@@ -363,10 +242,64 @@ body:not(.mode-admin) #btn-admin{display:none}
   padding:3px 10px;white-space:nowrap;
 }
 body:not(.mode-admin) .mode-chip{display:none}
+/* 店主专属控件（例：风格墙上的"返回数据管理"）：顾客端一律不显示 */
+.sl-admin-only{display:none}
+body.mode-admin .iconbtn.sl-admin-only{display:flex}
 .foot-note{
   text-align:center;font-size:11.5px;color:var(--text-3);line-height:1.8;
   padding:6px 0 20px;
 }
+
+/* ---------- 风格卡管理（数据管理页） ---------- */
+.style-list{margin:2px 0 12px}
+.style-row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;margin-bottom:6px;
+  background:var(--surface-2);border:1px solid var(--outline);border-radius:12px;
+}
+.style-row-name{flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.style-row-num{font-size:11.5px;color:var(--text-3);flex:0 0 auto}
+.style-row-del{
+  flex:0 0 auto;width:26px;height:26px;border-radius:8px;
+  font-size:16px;line-height:1;color:var(--text-3);
+  background:transparent;border:1px solid var(--outline);
+}
+.style-row-del:active{color:var(--danger);border-color:rgba(229,72,77,.4)}
+.style-row-none{justify-content:center;color:var(--text-3);font-size:12.5px}
+.style-add{display:flex;gap:8px;margin-bottom:12px}
+.style-add .txt{flex:1;min-width:0}
+.style-add .btn{flex:0 0 auto;width:auto;padding:0 16px;height:46px;white-space:nowrap}
+
+/* ---------- 文本输入框 ---------- */
+.txt{
+  width:100%;height:46px;padding:0 14px;
+  background:var(--surface-2);color:var(--text);
+  border:1px solid var(--outline);border-radius:12px;
+  font-family:inherit;font-size:14px;
+  -webkit-user-select:text;user-select:text;
+}
+.txt:focus{outline:none;border-color:var(--primary)}
+.txt::placeholder{color:var(--text-3)}
+
+/* ---------- 弹窗（店主添加风格卡） ---------- */
+.modal{
+  position:fixed;inset:0;z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal.open{opacity:1;pointer-events:auto}
+.modal-mask{position:absolute;inset:0;background:rgba(6,4,10,.68);backdrop-filter:blur(3px)}
+.modal-box{
+  position:relative;width:100%;max-width:340px;
+  background:var(--surface);border:1px solid var(--outline);border-radius:20px;
+  padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+  transform:translateY(10px) scale(.97);transition:transform .22s cubic-bezier(.32,.72,.35,1);
+}
+.modal.open .modal-box{transform:none}
+.modal-title{font-size:17px;font-weight:700}
+.modal-tip{font-size:12.5px;color:var(--text-2);line-height:1.7;margin:8px 0 14px}
+.modal-acts{display:flex;gap:10px;margin-top:16px}
+.modal-acts .btn{flex:1}
 
 /* ---------- Toast ---------- */
 .toast{
@@ -423,20 +356,21 @@ body:not(.mode-admin) .mode-chip{display:none}
   font-size:11.5px;color:var(--text-3);line-height:1.8;
   padding:12px 16px calc(14px + var(--safe-b));
 }
-.sl-wall-soon .sl-soon-card{
+/* 店主端末位"添加风格卡"（顾客端不渲染这张卡） */
+.sl-wall-add .sl-add-card{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;text-align:center;
+  gap:12px;text-align:center;
   border:1.5px dashed var(--outline);border-radius:20px;
   margin-bottom:14px;padding:24px;
 }
-.sl-soon-ic{
-  width:52px;height:52px;border-radius:16px;
+.sl-add-ic{
+  width:60px;height:60px;border-radius:20px;
   display:flex;align-items:center;justify-content:center;
-  font-size:22px;font-weight:700;color:var(--primary-2);
+  font-size:28px;color:var(--primary-2);
   background:var(--surface-2);border:1px solid var(--outline);
 }
-.sl-soon-t{font-size:15px;font-weight:600;color:var(--text-2)}
-.sl-soon-s{font-size:12px;color:var(--text-3);line-height:1.7;max-width:260px}
+.sl-add-t{font-size:18px;font-weight:700;color:var(--text)}
+.sl-add-s{font-size:12.5px;color:var(--text-3);line-height:1.8;max-width:280px}
 
 /* 第二层：模板库（衣服缩略图网格，从风格墙上移淡入） */
 .sl-gridview{
@@ -466,6 +400,11 @@ body:not(.mode-admin) .mode-chip{display:none}
   font-size:11.5px;color:var(--text);line-height:1.3;
   padding:18px 8px 8px;
   background:linear-gradient(transparent, rgba(11,9,16,.82));
+}
+/* 空风格（店主还没往里放衣服）的网格空态 */
+.sl-grid-empty{
+  grid-column:1 / -1;text-align:center;color:var(--text-3);
+  font-size:13px;line-height:2;padding:56px 0;
 }
 
 /* 第三层：放大查看（从网格上移淡入，左右滑动浏览上一件/下一件） */

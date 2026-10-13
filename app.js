@@ -140,7 +140,14 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  /* ---------------- 视图切换 ---------------- */
+  /* ---------------- 视图切换 ----------------
+     本应用没有独立的"首页"：顾客端的主界面就是「拍照风格库」（固定覆盖层）。
+     .screen 只剩 启动动画 / 服装详情 / 数据管理 三种，
+     收起全部 .screen 即露出底下的风格库。                                */
+  function hideScreens() {
+    state.view = '';
+    $$('.screen').forEach(function (s) { s.classList.remove('active'); });
+  }
   function showView(v) {
     state.view = v;
     $$('.screen').forEach(function (s) { s.classList.remove('active'); });
@@ -152,20 +159,20 @@
   }
   function closeView() {
     if (history.state && history.state.view) { history.back(); }
-    else { showView('main'); }
+    else { hideScreens(); }
   }
   window.addEventListener('popstate', function () {
     var s = history.state || {};
-    if (sl.open) {
-      /* 三层栈：{sl:1}=风格墙  {sl:2}=模板库网格  {sl:3}=放大查看
-         按下返回键逐层回退：放大→网格→墙→关库 */
-      if (sl.layer === 'browser' && s.sl === 2) { slToGrid(); return; }
-      if (sl.layer === 'grid' && s.sl === 1) { slToWall(); return; }
-      if (!s.sl || s.sl === 1) { closeStyleLib(true); return; }   /* 墙层 → 关库回首页 */
+    /* 详情页返回：收起详情层，露出底下的风格库（放大查看层仍在，可继续左右滑） */
+    if (state.view === 'detail') {
+      if (sl.open) { hideScreens(); } else { showView('data'); }
+      return;
     }
-    if (state.view === 'detail' || state.view === 'data') {
-      /* 店主模式下详情返回应回数据管理页，而不是顾客主界面 */
-      showView(isAdminMode() ? 'data' : 'main');
+    if (sl.open) {
+      /* 逐层回退：放大查看 → 模板库网格 → 风格墙
+         （风格墙是最外层，在墙上再按返回即离开页面，交给浏览器默认行为） */
+      if (sl.layer === 'browser') { slToGrid(); return; }
+      if (sl.layer === 'grid') { slToWall(); return; }
     }
   });
 
@@ -179,17 +186,15 @@
     document.body.classList.toggle('mode-admin', isAdminMode());
   }
   window.addEventListener('hashchange', function () {
-    var wasAdmin = document.body.classList.contains('mode-admin');
     applyMode();
     if (isAdminMode()) {
-      if (sl.open) closeStyleLib(true);   /* 切店主模式先收掉风格库，避免盖住数据页 */
-      if (state.view !== 'data') openView('data');        // 切入店主模式 → 直达数据管理
-    } else if (wasAdmin && state.view === 'data') {
-      showView('main');                                    // 退出店主模式 → 回顾客主界面
+      showView('data');            /* 进入店主端 → 直达数据管理（不作为历史栈节点） */
+    } else if (state.view === 'data') {
+      openStyleLib();              /* 退出店主端 → 回到顾客端主界面（风格库） */
     }
   });
 
-  /* ---------------- 主界面渲染 ---------------- */
+  /* ---------------- 通用工具 ---------------- */
   function counts() {
     var m = {};
     state.items.forEach(function (it) { m[it.categoryId] = (m[it.categoryId] || 0) + 1; });
@@ -197,51 +202,12 @@
   }
   function sortBySort(a, b) { return (a.sort || 0) - (b.sort || 0); }
 
-  function renderMain() {
-    /* 顾客端首页：中性首页，不再呈现"在售商品"电商网格。
-       首页只提供「进入拍照风格库」入口 + 各风格快捷卡（点开即进对应模板库）。 */
-    var box = $('#main-styles');
-    if (!box) return;
-    var cats = slCats();
-    if (!cats.length) {
-      box.innerHTML = '<div class="home-empty">服装上新中，稍后回来看看</div>';
-      return;
-    }
-    box.innerHTML =
-      '<p class="home-tip">挑一套喜欢的风格，看看里面的衣服</p>' +
-      cats.map(function (c) {
-        var its = slStyleItems(c.id);
-        var cover = its[0] && its[0].image ? its[0].image : '';
-        var img = cover
-          ? '<img draggable="false" src="' + escAttr(cover) + '" alt="" onerror="this.classList.add(\'img-err\')">'
-          : '';
-        return '<button class="home-style" data-cat="' + escAttr(c.id) + '">' +
-          '<div class="home-style-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
-          '<span>' + esc(c.name) + '</span><i>' + its.length + ' 套</i>' +
-        '</button>';
-      }).join('');
-  }
-
-  function cardHTML(it) {
-    /* 占位符必须在 img 之前：两者都是 absolute，后者绘制在上层，
-       图片加载失败时 img-err 隐藏 img，占位符才露出作为兜底 */
-    var img = it.image
-      ? '<img draggable="false" loading="lazy" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">'
-      : '';
-    var sizes = (it.sizes || []).slice(0, 3).map(function (s) { return '<i>' + esc(s) + '</i>'; }).join('');
-    return '<button class="card" data-id="' + escAttr(it.id) + '">' +
-      '<div class="card-img">' + placeholder(it) + img + '</div>' +
-      '<div class="card-body">' +
-        '<div class="card-name">' + esc(it.name) + '</div>' +
-        '<div class="card-row">' + sizes + '</div>' +
-      '</div>' +
-    '</button>';
-  }
-
-  /* ---------------- 拍照风格库（顾客端沉浸浏览） ----------------
-     打开：主界面顶栏按钮 / 屏幕左右边缘横滑（边缘手势不与分类滚动冲突）
-     两层：风格墙（分类封面大卡横滑）→ 风格全屏浏览（逐套服装横滑）
-     历史栈：开库 push{sl:1} → 进风格 push{sl:2}；Android 返回键逐层退出；
+  /* ---------------- 拍照风格库（顾客端主界面） ----------------
+     扫码进入 → 启动动画 → 直接落在风格墙（没有独立首页，也没有"返回主界面"入口）。
+     三层结构：风格墙（拍摄风格模板大卡，左右滑）
+             → 模板库网格（该风格下的衣服缩略图，点击放大）
+             → 放大查看（左右滑看上一件 / 下一件）
+     历史栈：进网格 push{sl:2} → 放大 push{sl:3}；Android 返回键逐层回退；
              下滑手势等同"返回上一层"，同样走 history.back() 单一出口。   */
   var SL_EDGE = 26;          /* 边缘手势判定区宽度 px */
   var SL_OPEN_DX = 44;       /* 开库手势横向阈值 px */
@@ -252,10 +218,8 @@
   var sl = { open: false, layer: 'wall', styleId: null, items: [], index: 0 };
 
   function slCounts() { return counts(); }
-  function slCats() {
-    var cnt = slCounts();
-    return state.categories.filter(function (c) { return cnt[c.id] > 0; });
-  }
+  /* 风格墙展示全部分类：空风格也保留卡片（店主可先建卡、之后再把衣服导进去） */
+  function slCats() { return state.categories.slice().sort(sortBySort); }
   function slStyleItems(catId) {
     return state.items.filter(function (it) { return it.categoryId === catId; }).sort(sortBySort);
   }
@@ -340,8 +304,9 @@
       onTap: function (t) {
         var card = t && t.closest ? t.closest('.sl-wall-slide') : null;
         if (!card) return;
+        if (card.dataset.add) { openStyleModal(); return; }   /* 店主端末位"添加风格卡" */
         var catId = card.dataset.cat;
-        if (!catId) { toast('新风格筹备中，敬请期待'); return; }
+        if (!catId) return;
         openGridView(catId);   /* 内部 push {sl:2}，此处不重复压栈 */
       }
     });
@@ -356,9 +321,10 @@
   }
   function renderStyleWall() {
     var cats = slCats();
-    var track = $('#sl-wall-track');    var html = cats.map(function (c) {
+    var html = cats.map(function (c) {
       var its = slStyleItems(c.id);
-      var cover = its[0] && its[0].image ? its[0].image : '';
+      /* 卡片封面：优先分类自带的 cover 字段，其次该风格第一件衣服的图，都没有则用占位底 */
+      var cover = (typeof c.cover === 'string' && c.cover) ? c.cover : (its[0] && its[0].image ? its[0].image : '');
       var img = cover
         ? '<img draggable="false" src="' + escAttr(cover) + '" alt="" onerror="this.classList.add(\'img-err\')">'
         : '';
@@ -366,21 +332,27 @@
         '<div class="sl-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
         '<div class="sl-wall-body">' +
           '<div class="sl-wall-name">' + esc(c.name) + '</div>' +
-          '<div class="sl-wall-sub">' + its.length + ' 套' + (c.desc ? ' · ' + esc(c.desc) : '') + '</div>' +
-          '<span class="sl-wall-go">进入浏览</span>' +
+          '<div class="sl-wall-sub">' + (its.length ? its.length + ' 件衣服' : '衣服整理中') + '</div>' +
+          '<span class="sl-wall-go">' + (its.length ? '进去挑衣服' : '待上架') + '</span>' +
         '</div>' +
       '</div>';
     }).join('');
-    /* 末尾固定一张"筹备中"卡：风格少时墙不空，也提示店主可扩展 */
-    html += '<div class="sl-wall-slide sl-wall-soon" data-cat="">' +
-      '<div class="sl-soon-card">' +
-        '<div class="sl-soon-ic">?</div>' +
-        '<div class="sl-soon-t">更多拍照风格筹备中</div>' +
-        '<div class="sl-soon-s">店主在数据管理页新增分类后，这里会自动出现新风格</div>' +
-      '</div>' +
-    '</div>';
+
+    /* 店主端：末位追加一张"添加风格卡"（顾客端不显示，客人永远看不到店主入口） */
+    if (isAdminMode()) {
+      html += '<div class="sl-wall-slide sl-wall-add" data-add="1">' +
+        '<div class="sl-add-card">' +
+          '<div class="sl-add-ic">＋</div>' +
+          '<div class="sl-add-t">添加风格卡</div>' +
+          '<div class="sl-add-s">点这里新增一个拍照风格；之后用<br>「数据管理 → 图片批量导入」把衣服图导进该风格。</div>' +
+          '<span class="sl-wall-go sl-add-go">点此添加</span>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var track = $('#sl-wall-track');
     track.innerHTML = html;
-    $('#sl-wall-count').textContent = cats.length ? cats.length + ' 个风格' : '';
+    $('#sl-wall-count').textContent = cats.length ? cats.length + ' 种风格' : '';
     wallSwiper.reset();   /* swiper 只初始化一次（bindStyleLib），此处仅重置位置 */
   }
 
@@ -390,6 +362,11 @@
     var items = slStyleItems(catId);
     $('#sl-grid-title').textContent = cat ? cat.name : '服装';
     $('#sl-grid-count').textContent = items.length + ' 件';
+    if (!items.length) {
+      $('#sl-grid-scroll').innerHTML =
+        '<div class="sl-grid-empty">这套风格的服装还在整理中<br>先看看别的风格吧</div>';
+      return;
+    }
     $('#sl-grid-scroll').innerHTML = items.map(function (it, i) {
       /* 占位符在前、图片在后（绝对定位叠放），图片加载失败才露出占位 */
       var img = it.image
@@ -401,9 +378,8 @@
   }
   function openGridView(catId) {
     var cat = state.categories.find(function (c) { return c.id === catId; });
-    var items = slStyleItems(catId);
-    if (!cat || !items.length) { toast('该风格还没有衣服'); return; }
-    sl.styleId = catId; sl.items = items; sl.layer = 'grid';
+    if (!cat) return;
+    sl.styleId = catId; sl.items = slStyleItems(catId); sl.layer = 'grid';
     renderGridView(catId);
     $('#sl-gridview').classList.add('on');
     try { history.pushState({ sl: 2 }, ''); } catch (e) {}
@@ -461,6 +437,8 @@
     $('#sl-gridview').classList.add('on');
     if (browserSwiper) browserSwiper.render(true);
   }
+  /* 返回上一层：优先消费历史栈中的对应节点（保证 Android 返回键与界面按钮行为一致），
+     无栈环境（如顾客端启动即落在墙上、未压栈）则直接切层 */
   function slBackWall() {
     if (history.state && history.state.sl === 2) { try { history.back(); return; } catch (e) {} }
     slToWall();
@@ -470,50 +448,32 @@
     slToGrid();
   }
 
-  /* ---- 开库 / 关库（历史栈单一出口） ---- */
-  function slBackWall() {
-    /* 浏览层 → 风格墙：优先用返回键消费 {sl:2}，保持栈一致；无栈环境直接切层 */
-    if (history.state && history.state.sl === 2) {
-      try { history.back(); return; } catch (e) {}
-    }
-    slToWall();
-  }
+  /* ---- 打开 / 关闭风格库 ----
+     顾客端：风格库就是主界面，启动即打开且不压历史栈
+             （栈底即本页，在风格墙上再按返回键就是离开页面 —— 没有"首页"可回）。
+     店主端：在数据页点「预览风格墙」临时打开，关闭后回到数据页。      */
   function openStyleLib() {
-    if (sl.open) return;
+    if (sl.open) { if (sl.layer !== 'wall') slToWall(); return; }
     sl.open = true; sl.layer = 'wall';
     renderStyleWall();
     $('#stylelib').classList.add('open');
     $('#stylelib').setAttribute('aria-hidden', 'false');
-    try { history.pushState({ sl: 1 }, ''); } catch (e) {}
   }
-  function closeStyleLib(fromPop) {
+  function closeStyleLib() {
     if (!sl.open) return;
     sl.open = false;
+    sl.layer = 'wall';
     $('#stylelib').classList.remove('open');
     $('#stylelib').setAttribute('aria-hidden', 'true');
     $('#sl-gridview').classList.remove('on');
     $('#sl-browser').classList.remove('on');
     $('#sl-browser').classList.remove('sl-immersive');
-    if (isAdminMode()) showView('data'); else showView('main');   /* 露出底层首页 */
-    if (!fromPop && history.state && history.state.sl) {
-      try { history.back(); } catch (e) {}   /* 消费掉开库时压入的 state，栈保持干净 */
-    }
+    if (isAdminMode()) showView('data');   /* 仅店主端有"关闭"语义 */
   }
 
-  /* 主界面边缘横滑开库：左缘右滑 / 右缘左滑均可（移动端边缘手势习惯） */
   function bindStyleLib() {
     /* 手势器只创建一次：重复创建会在同一 stage 上叠加监听器 */
     initSlSwipers();
-    /* 首页「进入拍照风格库」按钮 */
-    var enter = $('#home-enter');
-    if (enter) enter.addEventListener('click', openStyleLib);
-    /* 首页风格快捷入口：直接进对应模板库 */
-    var styles = $('#main-styles');
-    if (styles) styles.addEventListener('click', function (e) {
-      var b = e.target.closest('.home-style');
-      if (!b) return;
-      openStyleLib(); openGridView(b.dataset.cat);
-    });
     /* 第二层网格：点缩略图 → 放大查看 */
     var grid = $('#sl-grid-scroll');
     if (grid) grid.addEventListener('click', function (e) {
@@ -521,8 +481,95 @@
       if (!t) return;
       openBrowser(parseInt(t.dataset.i, 10));
     });
-    /* 风格墙点卡进入逻辑在 wallSwiper.onTap 内完成（setPointerCapture 会重定靶
+    /* 风格墙点卡逻辑在 wallSwiper.onTap 内完成（setPointerCapture 会重定靶
        click 事件到 stage，因此不能再用 stage 级 click 委托，详见 makeSwiper） */
+  }
+
+  /* ---------------- 风格卡（分类）管理 · 店主端 ----------------
+     风格墙上的每一张卡就是一个分类；店主可自行新增。
+     新增后客人端首屏立即多一张卡（封面先占位，导入衣服后自动取第一张图）。 */
+  function styleId() { return 'cat-' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36); }
+
+  function addStyle(name, done) {
+    name = String(name == null ? '' : name).trim();
+    if (!name) { toast('请输入风格名称'); return Promise.resolve(null); }
+    if (state.categories.some(function (c) { return c.name === name; })) { toast('已经有同名风格了'); return Promise.resolve(null); }
+    var maxSort = state.categories.reduce(function (m, c) { return Math.max(m, c.sort || 0); }, 0);
+    var cat = { id: styleId(), name: name, sort: maxSort + 1, desc: '' };
+    return putAll('categories', [cat])
+      .then(reload)
+      .then(function () {
+        renderStyleWall();
+        renderStyleManage();
+        renderImgCatSelect();
+        renderStats();
+        toast('已添加风格卡：' + name);
+        if (done) done(cat);
+        return cat;
+      });
+  }
+
+  function renderStyleManage() {
+    var box = $('#style-list');
+    if (!box) return;
+    var cnt = slCounts();
+    box.innerHTML = state.categories.map(function (c) {
+      var n = cnt[c.id] || 0;
+      return '<div class="style-row">' +
+        '<span class="style-row-name">' + esc(c.name) + '</span>' +
+        '<span class="style-row-num">' + n + ' 件</span>' +
+        (n === 0 ? '<button class="style-row-del" data-del-cat="' + escAttr(c.id) + '" aria-label="删除空风格">×</button>' : '') +
+      '</div>';
+    }).join('') || '<div class="style-row style-row-none">还没有风格卡，用下面输入框添加</div>';
+  }
+
+  function deleteEmptyStyle(catId) {
+    var c = state.categories.find(function (x) { return x.id === catId; });
+    if (!c) return;
+    if ((slCounts()[catId] || 0) > 0) { toast('该风格下已有衣服，不能删除'); return; }
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('categories', 'readwrite');
+        tx.objectStore('categories').delete(catId);
+        tx.oncomplete = res;
+        tx.onerror = function () { rej(tx.error); };
+      });
+    }).then(reload).then(function () {
+      renderStyleWall(); renderStyleManage(); renderImgCatSelect(); renderStats();
+      toast('已删除风格：' + c.name);
+    });
+  }
+
+  /* ---- 添加风格卡弹窗 ---- */
+  function openStyleModal() {
+    var m = $('#style-modal');
+    if (!m) return;
+    $('#style-name').value = '';
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    setTimeout(function () { try { $('#style-name').focus(); } catch (e) {} }, 120);
+  }
+  function closeStyleModal() {
+    var m = $('#style-modal');
+    if (!m) return;
+    m.classList.remove('open');
+    m.setAttribute('aria-hidden', 'true');
+  }
+  function submitStyleModal() {
+    var el = $('#style-name');
+    addStyle(el.value, function () {
+      closeStyleModal();
+      if (!sl.open) openStyleLib();
+      /* 跳到刚新增的那张卡 */
+      setTimeout(function () {
+        if (wallSwiper) wallSwiper.go(slCats().length - 1);
+      }, 30);
+    });
+  }
+  function submitInlineStyle() {
+    var el = $('#style-name-inline');
+    if (!el) return;
+    addStyle(el.value, function () { el.value = ''; });
   }
 
   /* ---------------- 详情页 ---------------- */
@@ -550,8 +597,8 @@
   /* ---------------- 数据管理 ---------------- */
   function renderStats() {
     $('#stat-row').innerHTML =
-      '<div class="stat"><b>' + state.categories.length + '</b><span>个分类</span></div>' +
-      '<div class="stat"><b>' + state.items.length + '</b><span>件服装</span></div>';
+      '<div class="stat"><b>' + state.categories.length + '</b><span>种拍摄风格</span></div>' +
+      '<div class="stat"><b>' + state.items.length + '</b><span>件衣服</span></div>';
   }
 
   function normalizeImport(raw) {
@@ -631,9 +678,10 @@
         .then(function () { return putAll('items', r.items); })
         .then(reload)
         .then(function () {
-          renderMain(); renderStats(); renderImgCatSelect();
+          renderStats(); renderStyleManage(); renderImgCatSelect();
+          if (sl.open) renderStyleWall();
           if (silent) return;
-          var msg = '导入成功：' + r.categories.length + ' 个分类，' + r.items.length + ' 件服装';
+          var msg = '导入成功：' + r.categories.length + ' 个风格，' + r.items.length + ' 件衣服';
           showImportMsg('ok', msg, r.warnings);
           toast(msg);
         });
@@ -692,7 +740,7 @@
     var html = state.categories.map(function (c) {
       return '<option value="' + escAttr(c.id) + '">' + esc(c.name) + '</option>';
     }).join('');
-    html += '<option value="__new">＋ 新建分类（图片导入）</option>';
+    html += '<option value="__new">＋ 新建风格（导入时创建）</option>';
     sel.innerHTML = html;
   }
 
@@ -750,12 +798,12 @@
     var target = $('#img-cat').value;
     var catId = target;
     if (target === '__new') {
-      var exist = state.categories.find(function (c) { return c.name === '图片导入'; });
+      var exist = state.categories.find(function (c) { return c.name === '新风格'; });
       if (exist) { catId = exist.id; }
       else {
         catId = 'cat-img-' + Date.now().toString(36);
         var maxSort = state.categories.reduce(function (m, c) { return Math.max(m, c.sort || 0); }, 0);
-        newCat = { id: catId, name: '图片导入', sort: maxSort + 1, desc: '由图片批量导入创建' };
+        newCat = { id: catId, name: '新风格', sort: maxSort + 1, desc: '导入图片时新建' };
       }
     }
 
@@ -793,7 +841,8 @@
         .then(function () { return putAll('items', state.mode === 'replace' ? items : state.items.concat(items)); })
         .then(reload)
         .then(function () {
-          renderMain(); renderStats(); renderImgCatSelect();
+          renderStats(); renderStyleManage(); renderImgCatSelect();
+          if (sl.open) renderStyleWall();
           imgBusy = false;
           if (btn) btn.disabled = false;
           if (items.length) {
@@ -823,12 +872,15 @@
       var b = e.target.closest('[data-act]');
       if (!b) return;
       var act = b.dataset.act;
-      if (act === 'open-data') { openView('data'); }
-      else if (act === 'sl-close') { closeStyleLib(false); }
+      if (act === 'sl-close') { closeStyleLib(); }
       else if (act === 'sl-back-wall') { slBackWall(); }
       else if (act === 'sl-back-grid') { slBackGrid(); }
       else if (act === 'sl-detail') { var cur = sl.items[sl.index]; if (cur) openDetail(cur.id); }
       else if (act === 'back') { closeView(); }
+      else if (act === 'preview-wall') { openStyleLib(); }
+      else if (act === 'style-add-inline') { submitInlineStyle(); }
+      else if (act === 'style-create') { submitStyleModal(); }
+      else if (act === 'modal-close') { closeStyleModal(); }
       else if (act === 'dl-template') {
         download('wardrobe-template.json', { version: 1, categories: [], items: [] });
         toast('空模板已下载');
@@ -853,7 +905,8 @@
       else if (act === 'clear') {
         if (b.classList.contains('armed')) {
           clearStore('categories').then(function () { return clearStore('items'); }).then(reload).then(function () {
-            renderMain(); renderStats(); renderImgCatSelect();
+            renderStats(); renderStyleManage(); renderImgCatSelect();
+            if (sl.open) renderStyleWall();
             b.classList.remove('armed'); b.textContent = '清空所有数据';
             toast('已清空全部数据');
           });
@@ -862,6 +915,24 @@
           setTimeout(function () { b.classList.remove('armed'); b.textContent = '清空所有数据'; }, 3000);
         }
       }
+    });
+
+    /* 风格卡管理：删除空风格（有衣服的卡片不允许删，避免误删数据） */
+    var slist = $('#style-list');
+    if (slist) slist.addEventListener('click', function (e) {
+      var d = e.target.closest('[data-del-cat]');
+      if (!d) return;
+      deleteEmptyStyle(d.dataset.delCat);
+    });
+
+    /* 两个风格名输入框：回车即提交 */
+    var sn = $('#style-name');
+    if (sn) sn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitStyleModal(); }
+    });
+    var si = $('#style-name-inline');
+    if (si) si.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitInlineStyle(); }
     });
 
     $('#file-input').addEventListener('change', function () {
@@ -895,22 +966,27 @@
 '{\n' +
 '  "version": 1,\n' +
 '  "categories": [\n' +
-'    { "id": "cat-dress", "name": "连衣裙", "sort": 1, "desc": "春夏新款" }\n' +
+'    { "id": "cat-id", "name": "证件照", "sort": 1, "desc": "", "cover": "" }\n' +
 '  ],\n' +
 '  "items": [\n' +
 '    {\n' +
 '      "id": "item-001",\n' +
-'      "categoryId": "cat-dress",\n' +
-'      "name": "浅紫碎花连衣裙",\n' +
-'      "image": "https://example.com/1.jpg",\n' +
+'      "categoryId": "cat-id",\n' +
+'      "name": "藏青西装外套",\n' +
+'      "image": "images/主图_001.jpg（或 https 链接 / base64）",\n' +
 '      "sizes": ["S", "M", "L"],\n' +
-'      "colors": ["#8B5CF6"],\n' +
-'      "tags": ["新品", "显瘦"],\n' +
-'      "desc": "雪纺面料，透气亲肤",\n' +
+'      "colors": ["#1F2937"],\n' +
+'      "tags": ["显瘦", "上镜"],\n' +
+'      "desc": "适合证件照拍摄的外套",\n' +
 '      "sort": 1\n' +
 '    }\n' +
 '  ]\n' +
-'}';
+'}\n' +
+'\n' +
+'说明：\n' +
+'· categories = 风格墙上的卡片（证件照 / 领证照 / 亲子照…），cover 留空则自动取该风格第一件衣服的图；\n' +
+'· items = 某风格下的衣服，categoryId 必须指向上面的风格 id；\n' +
+'· 更新线上内容：先在「数据管理」导出，覆盖仓库里的 catalog.json，再更新部署。';
   }
 
   function init() {
@@ -919,10 +995,12 @@
     renderFmtExample();
     applyMode();
     reload().then(function () {
-      renderMain();
       renderStats();
+      renderStyleManage();
       renderImgCatSelect();
       return syncCatalog();
+    }).then(function () {
+      if (sl.open) renderStyleWall();   /* 同步到新数据后刷新风格墙 */
     });
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () {});
@@ -931,7 +1009,8 @@
       $('#splash').classList.remove('active');
       showView('data');   /* 店主端独立入口：跳过启动动画，直达数据管理 */
     } else {
-      /* 顾客端：启动动画后直接进入拍照风格库（扫码即可使用，无需先经过店铺首页） */
+      /* 顾客端：启动动画结束后直接落在拍照风格墙上 ——
+         风格库就是主界面，中间不再经过任何"店铺首页"或入口按钮。 */
       setTimeout(function () {
         $('#splash').classList.remove('active');
         openStyleLib();

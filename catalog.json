@@ -1,18 +1,84 @@
 {
-  "version": 1791871294595,
+  "version": 1791874664000,
   "comment": "自动生成：数据来自 images/ 目录。店主可在 数据管理页 调整名称/分类/颜色/标签/尺码，导出后覆盖本文件。",
   "categories": [
     {
-      "id": "cat-default",
-      "name": "精选服装",
+      "id": "cat-id",
+      "name": "证件照",
       "sort": 1,
+      "desc": ""
+    },
+    {
+      "id": "cat-marriage",
+      "name": "领证照",
+      "sort": 2,
+      "desc": ""
+    },
+    {
+      "id": "cat-parent",
+      "name": "亲子照",
+      "sort": 3,
+      "desc": ""
+    },
+    {
+      "id": "cat-family",
+      "name": "全家福",
+      "sort": 4,
+      "desc": ""
+    },
+    {
+      "id": "cat-person",
+      "name": "个人写真",
+      "sort": 5,
+      "desc": ""
+    },
+    {
+      "id": "cat-birthday",
+      "name": "生日写真",
+      "sort": 6,
+      "desc": ""
+    },
+    {
+      "id": "cat-image",
+      "name": "形象照",
+      "sort": 7,
+      "desc": ""
+    },
+    {
+      "id": "cat-boy1",
+      "name": "男宝宝周岁照",
+      "sort": 8,
+      "desc": ""
+    },
+    {
+      "id": "cat-girl1",
+      "name": "女宝宝周岁照",
+      "sort": 9,
+      "desc": ""
+    },
+    {
+      "id": "cat-elder",
+      "name": "老人像",
+      "sort": 10,
+      "desc": ""
+    },
+    {
+      "id": "cat-friend",
+      "name": "闺蜜照",
+      "sort": 11,
+      "desc": ""
+    },
+    {
+      "id": "cat-couple",
+      "name": "情侣照",
+      "sort": 12,
       "desc": ""
     }
   ],
   "items": [
     {
       "id": "good-001",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_002",
       "image": "images/主图_002.jpg",
       "sizes": [],
@@ -23,7 +89,7 @@
     },
     {
       "id": "good-002",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_003",
       "image": "images/主图_003.jpg",
       "sizes": [],
@@ -34,7 +100,7 @@
     },
     {
       "id": "good-003",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_004",
       "image": "images/主图_004.jpg",
       "sizes": [],
@@ -45,7 +111,7 @@
     },
     {
       "id": "good-004",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_005",
       "image": "images/主图_005.jpg",
       "sizes": [],
@@ -56,7 +122,7 @@
     },
     {
       "id": "good-005",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_006",
       "image": "images/主图_006.jpg",
       "sizes": [],
@@ -67,7 +133,7 @@
     },
     {
       "id": "good-006",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "主图_011",
       "image": "images/主图_011.jpg",
       "sizes": [],
@@ -78,7 +144,7 @@
     },
     {
       "id": "good-007",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "其他_007",
       "image": "images/其他_007.jpg",
       "sizes": [],
@@ -89,7 +155,7 @@
     },
     {
       "id": "good-008",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "其他_008",
       "image": "images/其他_008.jpg",
       "sizes": [],
@@ -100,7 +166,7 @@
     },
     {
       "id": "good-009",
-      "categoryId": "cat-default",
+      "categoryId": "cat-person",
       "name": "缩略图_001",
       "image": "images/缩略图_001.jpg",
       "sizes": [],

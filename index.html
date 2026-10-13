@@ -30,31 +30,8 @@
   </div>
 </section>
 
-<!-- ============ 顾客首页（中性，非电商店铺） ============ -->
-<section id="main" class="screen main">
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 7.6a2 2 0 1 1 2-2c0 1.1-2 1.9-2 3.2"/>
-          <path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/>
-        </svg>
-      </span>
-      <span class="brand-name">选衣</span>
-    </div>
-  </header>
-  <div class="home">
-    <div class="home-hero">
-      <h1 class="home-h">选一套风格，挑一件衣服</h1>
-      <p class="home-sub">左右滑动浏览拍摄风格，点开任意一套，看里面的衣服</p>
-    </div>
-    <button class="home-enter" id="home-enter">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
-      进入拍照风格库
-    </button>
-    <div class="home-styles" id="main-styles"></div>
-  </div>
-</section>
+<!-- 说明：本应用没有独立的"主界面 / 首页"。
+     顾客扫码后经启动动画直接进入下方「拍照风格库」，风格库即主界面。 -->
 
 <!-- ============ 服装详情 ============ -->
 <section id="detail" class="screen detail">
@@ -75,8 +52,9 @@
 <!-- ============ 数据管理 ============ -->
 <section id="data" class="screen data">
   <header class="topbar">
-    <button class="iconbtn" data-act="back" aria-label="返回">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    <!-- 店主端没有"返回首页"可回（风格库即主界面），此处直接给「看客人视角」入口 -->
+    <button class="iconbtn" data-act="preview-wall" aria-label="预览风格墙（客人视角）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
     <span class="topbar-title">数据管理</span>
     <span class="admin-badge">店主模式</span>
@@ -120,6 +98,20 @@
     </div>
 
     <div class="card">
+      <h3 class="card-title">拍照风格卡（风格墙）</h3>
+      <p class="card-tip">客人扫码后第一眼看到的就是这些风格卡。用上面的「图片批量导入」把衣服图片导入到对应风格，风格卡封面会自动取该风格的第一张衣服图。</p>
+      <div class="style-list" id="style-list"></div>
+      <div class="style-add">
+        <input type="text" id="style-name-inline" class="txt" placeholder="新风格名称，如「韩式证件照」" maxlength="12">
+        <button class="btn btn-primary" data-act="style-add-inline">添加风格卡</button>
+      </div>
+      <button class="btn btn-ghost btn-block" data-act="preview-wall">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        预览风格墙（以客人视角看）
+      </button>
+    </div>
+
+    <div class="card">
       <h3 class="card-title">导出</h3>
       <button class="btn btn-ghost btn-block" data-act="dl-template">下载空模板 JSON</button>
       <button class="btn btn-ghost btn-block" data-act="dl-data">导出当前数据（备份）</button>
@@ -142,12 +134,13 @@
   </div>
 </section>
 
-<!-- ============ 拍照风格库（顾客端沉浸浏览，扫码进入直接使用） ============ -->
+<!-- ============ 拍照风格库（顾客端主界面，扫码进入直接使用） ============ -->
 <section id="stylelib" class="stylelib" aria-hidden="true">
-  <!-- 第一层：风格墙（每个拍摄风格一张封面大卡，左右滑动浏览） -->
+  <!-- 第一层：风格墙（每个拍摄风格一张模板大卡，左右滑动浏览） -->
   <div class="sl-wall">
     <header class="topbar">
-      <button class="iconbtn" data-act="sl-close" aria-label="返回首页">
+      <!-- 仅店主预览时可见：顾客端没有"返回主界面"入口（风格库就是主界面） -->
+      <button class="iconbtn sl-admin-only" data-act="sl-close" aria-label="返回数据管理">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
       <span class="topbar-title">拍照风格库</span>
@@ -156,7 +149,7 @@
     <div class="sl-wall-stage" id="sl-wall-stage">
       <div class="sl-wall-track" id="sl-wall-track"></div>
     </div>
-    <p class="sl-wall-tip">左右滑动浏览风格 · 点开看里面的衣服<br>下滑返回首页</p>
+    <p class="sl-wall-tip">左右滑动浏览拍摄风格 · 点开卡片挑里面的衣服</p>
   </div>
 
   <!-- 第二层：模板库（衣服缩略图网格） -->
@@ -193,6 +186,20 @@
     </footer>
   </div>
 </section>
+
+<!-- ============ 添加风格卡弹窗（店主端） ============ -->
+<div class="modal" id="style-modal" aria-hidden="true">
+  <div class="modal-mask" data-act="modal-close"></div>
+  <div class="modal-box">
+    <h3 class="modal-title">添加拍照风格卡</h3>
+    <p class="modal-tip">给这张卡起个名字，它会出现在客人扫码后的第一屏。</p>
+    <input type="text" id="style-name" class="txt" placeholder="例如：韩式证件照" maxlength="12">
+    <div class="modal-acts">
+      <button class="btn btn-ghost" data-act="modal-close">取消</button>
+      <button class="btn btn-primary" data-act="style-create">添加</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

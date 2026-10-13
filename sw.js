@@ -1,12 +1,13 @@
 /* ============================================================
    衣橱 Service Worker — 零外部请求
-   v7：预缓存全部静态资源；catalog.json 网络优先；
-        导航请求断网回退离线提示页
-   v7 变更：preview.html 改为单图左右滑动查看器（styles.css 同步更新），
-        提升缓存版本号确保更新生效。
-  注：images/ 下的图片不预缓存，首次浏览时按需写入缓存。
+   预缓存全部静态资源；catalog.json 网络优先；导航请求断网回退离线提示页
+   v8 变更：
+     · 顾客端主界面改为「拍照风格库」（取消独立首页），界面结构变化
+     · 移除已删除的 preview.html（它会让 addAll 整体失败、一个资源都缓存不上）
+     · 提升缓存版本号确保更新生效
+   注：images/ 下的图片不预缓存，首次浏览时按需写入缓存。
    ============================================================ */
-var CACHE = 'wardrobe-v7';
+var CACHE = 'wardrobe-v8';
 
 /* 预缓存清单：全部静态资源。
    注意：catalog.json 故意不在此列 —— 它走网络优先策略，
@@ -21,8 +22,7 @@ var ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './db-template.json',
-  './offline.html',
-  './preview.html'
+  './offline.html'
 ];
 
 self.addEventListener('install', function (e) {
