@@ -429,7 +429,7 @@ check('P6：app.js 无 DOM 顺序依赖', 'data-scroll' not in appjs)
 # ---------- 12. 独立店主端 App（admin.html + admin.webmanifest） ----------
 # 背景：顾客端 PWA 的 start_url 固定是 ./index.html，hash（#/admin）不在 start_url 里，
 # 安装出来的图标、Edge「创建快捷方式」勾选"在窗口中打开"都会绕回顾客端，
-# 店主反复进不了后台（2026-10-15 实测 #/admin 直开代码无缺陷，纯入口问题）。
+# 店主反复进不了后台（2026-10-14 实测 #/admin 直开代码无缺陷，纯入口问题）。
 # 解法：店主端有自己的 manifest，start_url 就是后台；admin.html 自愈跳转。
 admin_html = read('admin.html')
 check('admin.html 只链接 admin.webmanifest', 'href="admin.webmanifest"' in admin_html)
