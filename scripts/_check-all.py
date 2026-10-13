@@ -339,7 +339,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v17', "var CACHE = 'wardrobe-v17';" in sw)
+check('sw 版本 v18', "var CACHE = 'wardrobe-v18';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
@@ -381,6 +381,50 @@ check('排版优化：overflow-wrap:anywhere 已落回', 'overflow-wrap:anywhere
 check('无中文标题负字距', not re.search(r'letter-spacing:\s*-\d', css))
 check('无 CRLF 污染', '\r\n' not in open(os.path.join(APP, 'styles.css'),
       encoding='utf-8', newline='').read())
+
+# ---------- 11. P6 分组侧栏（店主端横屏布局，用户 2026-10-14 选定） ----------
+html = read('index.html')
+# HTML：两个容器层 + 各卡显式定位类
+check('P6：admin-side 容器存在', html.count('class="admin-side"') == 1)
+check('P6：admin-main 容器存在', html.count('class="admin-main"') == 1)
+for cls in ('card-import', 'card-styles', 'card-items', 'card-export', 'card-fmt'):
+    check('P6：显式定位类 .' + cls, ('class="card ' + cls + '"') in html)
+# 右栏：恰好包住 导入/导出/格式/危险 四张卡
+seg = html.split('class="admin-side"', 1)[1].split('<!-- /admin-side', 1)[0]
+check('P6：admin-side 内四卡齐全',
+      all(k in seg for k in ('导入数据', '导出', '数据格式', '危险区')))
+check('P6：admin-side 内恰好 4 张卡', seg.count('class="card card-') == 4)
+check('P6：右栏内无左工作区元素', '衣服模板卡' not in seg and '衣服清单' not in seg)
+# 左栏：stat-row / 模板卡 / 清单 / foot-note 都在 admin-main 内
+mseg = html.split('class="admin-main"', 1)[1].split('<!-- /admin-main', 1)[0]
+check('P6：admin-main 内四元素齐全',
+      all(k in mseg for k in ('stat-row', 'card-styles', 'card-items', 'foot-note')))
+check('P6：admin-main 内无操作卡', 'card-import' not in mseg and 'card-export' not in mseg)
+# CSS：窄屏基准 = 两层 contents 拆散 + order 恢复原单列顺序
+check('P6：窄屏 data-scroll 竖排单列', '.data-scroll{display:flex;flex-direction:column}' in css)
+check('P6：admin-main 窄屏 display:contents', '.admin-main{display:contents}' in css)
+check('P6：admin-side 窄屏 display:contents', '.admin-side{display:contents}' in css)
+for cls, od in (('stat-row', 1), ('card-import', 2), ('card-styles', 3), ('card-items', 4),
+                ('card-export', 5), ('card-fmt', 6), ('card-danger', 7), ('foot-note', 8)):
+    check('P6：窄屏 order %s=%d' % (cls, od),
+          re.search(r'\.' + cls + r'\{order:' + str(od) + r'\}', css) is not None)
+# CSS：900 档（双列流）——contents 提升的元素不能被父子前缀选择器漏掉
+check('P6：900 档导入卡跨列用显式类（无父子前缀）', '.card-import{grid-column:1 / -1}' in css)
+check('P6：900 档 margin 重置用后代选择器', '.data-scroll .card{margin-bottom:0}' in css)
+check('P6：900 档不再用 :first-of-type 定位', '.card:first-of-type' not in css)
+# CSS：≥1024 档完整 P6 布局
+check('P6：桌面断点 ≥1024px', '@media (min-width:1024px)' in css)
+check('P6：右常驻栏 sticky', re.search(r'\.admin-side\{[^}]*position:sticky;top:0', css) is not None)
+check('P6：右栏只占 row1 不跨行（跨行+max-height 百分比会被坑成 92px）',
+      'grid-row:1 / -1' not in css)
+check('P6：右栏限高用 dvh calc', 'max-height:calc(100dvh - 96px)' in css)
+check('P6：左工作区 + 右 336px 双列', 'grid-template-columns:minmax(0,1fr) 336px' in css)
+check('P6：左工作区为竖排 flex 流',
+      '.admin-main{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:14px' in css)
+check('P6：桌面容器放宽到 1240px', 'max-width:1240px' in css)
+# app.js 不得依赖 .data-scroll 子元素顺序（P6 包容器不能破坏渲染）
+appjs = read('app.js')
+check('P6：app.js 无 DOM 顺序依赖', 'data-scroll' not in appjs)
 
 print('\nRESULT:', 'ALL PASS' if ok else 'HAS FAILURES')
 sys.exit(0 if ok else 1)

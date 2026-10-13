@@ -49,9 +49,12 @@
   </header>
   <div class="data-scroll">
 
-    <div class="stat-row" id="stat-row"></div>
-
-    <div class="card">
+    <!-- P6 分组侧栏：右常驻操作栏（导入 / 导出 / 数据格式 / 危险区）
+         + 左工作区（统计 / 模板卡 / 清单 / 脚注）。
+         窄屏（<1024px）两层容器均由 CSS display:contents 拆回原单列顺序，行为不变；
+         ≥1024px 横屏：admin-main 在左列单列流，admin-side 为右 336px sticky 常驻栏。 -->
+    <div class="admin-side">
+    <div class="card card-import">
       <h3 class="card-title">导入数据</h3>
       <div class="seg" id="import-mode">
         <button class="on" data-mode="merge">合并导入</button>
@@ -85,7 +88,29 @@
       <div class="import-msg" id="import-msg"></div>
     </div>
 
-    <div class="card">
+    <div class="card card-export">
+      <h3 class="card-title">导出</h3>
+      <button class="btn btn-ghost btn-block" data-act="dl-template">下载空模板 JSON</button>
+      <button class="btn btn-ghost btn-block" data-act="dl-data">导出当前数据（备份）</button>
+    </div>
+
+    <div class="card card-fmt">
+      <h3 class="card-title">数据格式</h3>
+      <details class="fmt">
+        <summary>查看字段说明与示例</summary>
+        <pre id="fmt-example"></pre>
+      </details>
+    </div>
+
+    <div class="card card-danger">
+      <h3 class="card-title">危险区</h3>
+      <button class="btn btn-danger btn-block" id="btn-clear" data-act="clear">清空所有数据</button>
+    </div>
+    </div><!-- /admin-side -->
+
+    <div class="admin-main">
+    <div class="stat-row" id="stat-row"></div>
+    <div class="card card-styles">
       <h3 class="card-title">衣服模板卡（风格墙）</h3>
       <p class="card-tip">客人扫码后第一眼看到的就是这些模板卡。先用上面的「图片批量导入」把衣服图导进对应风格，再点每行的 <b>封面</b> 自定义卡片封面 —— 可以从这套风格的衣服里挑一张，也可以上传一张专门拍的封面图；不设则自动取该风格第一张衣服图。</p>
       <div class="style-list" id="style-list"></div>
@@ -99,32 +124,14 @@
       </button>
     </div>
 
-    <div class="card">
+    <div class="card card-items">
       <h3 class="card-title">衣服清单（全部条目）</h3>
       <p class="card-tip">这里列出已导入的每一件衣服：<b>点缩略图</b>换图、<b>点名字</b>改名、名称下方的<b>下拉框</b>可把它移到别的风格、右侧 <b>×</b> 删除（要再点一次确认，防手滑）。整理完记得用下面的「导出当前数据」覆盖仓库里的 catalog.json，客人那边才会更新。</p>
       <div class="item-list" id="item-list"></div>
     </div>
 
-    <div class="card">
-      <h3 class="card-title">导出</h3>
-      <button class="btn btn-ghost btn-block" data-act="dl-template">下载空模板 JSON</button>
-      <button class="btn btn-ghost btn-block" data-act="dl-data">导出当前数据（备份）</button>
-    </div>
-
-    <div class="card">
-      <h3 class="card-title">数据格式</h3>
-      <details class="fmt">
-        <summary>查看字段说明与示例</summary>
-        <pre id="fmt-example"></pre>
-      </details>
-    </div>
-
-    <div class="card card-danger">
-      <h3 class="card-title">危险区</h3>
-      <button class="btn btn-danger btn-block" id="btn-clear" data-act="clear">清空所有数据</button>
-    </div>
-
     <p class="foot-note">本应用不请求任何外部服务，数据仅存储于本机浏览器。<br>技术栈：HTML + CSS + JavaScript + IndexedDB，全部免费开源。</p>
+    </div><!-- /admin-main -->
   </div>
 </section>
 

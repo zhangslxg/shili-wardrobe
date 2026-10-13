@@ -532,6 +532,33 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
 .sl-browser.sl-immersive .sl-chrome{opacity:0;pointer-events:none}
 .sl-browser.sl-immersive .sl-dots{opacity:0}
 /* 系统降低动效时全部过渡直出 */
+/* ============================================================
+   P6 分组侧栏布局（店主端横屏方案 · 用户 2026-10-14 选定）
+   ------------------------------------------------------------
+   结构（index.html #data 内 .data-scroll 下，两个容器层）：
+     左工作区 .admin-main：stat-row / 模板卡 / 清单 / foot-note
+     右常驻栏 .admin-side：导入 / 导出 / 数据格式 / 危险区 四张卡
+
+   三档行为（窄屏是基准，行为与改造前逐像素一致）：
+     < 900px    ：两层容器都 display:contents 拆散，八个元素按 order
+                 回到「导入→模板卡→清单→导出→格式→危险」原单列顺序。
+     900~1023px ：.data-scroll 双列流（1fr 1fr，沿用原 900 档规则），
+                 order 保证自动放置顺序 = 原顺序，导入卡仍跨整行。
+     ≥ 1024px   ：完整 P6 —— admin-main 左列单列流 + admin-side 右 336px
+                 sticky 常驻栏，左栏滚动时右栏钉住不消失。
+   ============================================================ */
+.data-scroll{display:flex;flex-direction:column}
+.admin-main{display:contents}
+.admin-side{display:contents}
+.stat-row{order:1}
+.card-import{order:2}
+.card-styles{order:3}
+.card-items{order:4}
+.card-export{order:5}
+.card-fmt{order:6}
+.card-danger{order:7}
+.foot-note{order:8}
+
 @media (prefers-reduced-motion:reduce){
   .stylelib,.sl-gridview,.sl-browser,.sl-wall-track,.sl-track,.sl-chrome,.sl-dots,.modal,.toast{transition:none}
 }
@@ -578,12 +605,18 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   .sl-slide{padding:16px 48px}
 
   /* 店主端数据页：宽屏改双列，不再一条到底。
-     统计行与导入卡是「整行语义」，跨两列；其余卡片进栅格。 */
+     统计行与导入卡是「整行语义」，跨两列；其余卡片进栅格。
+     注意 1：导入卡用显式类 .card-import 定位而不用 :first-of-type ——
+     四张操作卡已被包进 .admin-side（display:contents 提升为 grid item），
+     :first-of-type 的匹配目标会发生漂移。
+     注意 2：.card-import / .stat-row 都不能加 .data-scroll> 父子前缀 ——
+     display:contents 只提升布局、不改 DOM 父子关系（它们在 .admin-* 里），
+     加了永远匹配不到；margin 重置同理用后代选择器。 */
   .data-scroll{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;
                padding:16px 20px calc(24px + var(--safe-b))}
-  .data-scroll>.stat-row,
-  .data-scroll>.card:first-of-type{grid-column:1 / -1}
-  .data-scroll>.card{margin-bottom:0}
+  .data-scroll .stat-row,
+  .card-import{grid-column:1 / -1}
+  .data-scroll .card{margin-bottom:0}
 }
 
 /* --- 三级：横屏低矮视口（高度受限）--- */
@@ -615,4 +648,32 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   /* 放大查看：横屏的最大价值是照片更大，底栏压薄 */
   .sl-slide{padding:8px 56px}
   .sl-bar{padding:8px 16px calc(10px + var(--safe-b))}
+}
+
+/* --- 四级：桌面横屏（≥ 1024px）· P6 分组侧栏完整布局 --- */
+/* 左工作区单列流 + 右 336px 操作常驻栏；顾客端容器同步放宽，
+   必须 .screen,.stylelib 一起收窄居中，否则与启动页跳变。
+   关键：.admin-side 只占 grid-row:1 不跨行 —— 跨行 grid item 的
+   max-height:100% 会被浏览器按首行高度解析（实测把右栏压成 92px 小滚动盒）；
+   只占 row1 时 sticky 移动范围即整行，一样全程钉住。 */
+@media (min-width:1024px){
+  .screen,.stylelib{max-width:1240px;margin:0 auto}
+
+  .data-scroll{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:18px;
+               align-items:start;padding:16px 26px calc(24px + var(--safe-b))}
+  .admin-main{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .admin-main .card{margin-bottom:0}
+  .admin-main .stat-row{margin:0}
+  .admin-side{
+    grid-column:2;grid-row:1;
+    position:sticky;top:0;
+    display:flex;flex-direction:column;gap:12px;
+    max-height:calc(100dvh - 96px);overflow:auto;overscroll-behavior:contain;
+    scrollbar-width:none;
+  }
+  .admin-side::-webkit-scrollbar{display:none}
+
+  /* 弹窗随容器放宽 */
+  .modal-box{max-width:480px}
+  .modal-box-lg{max-width:640px}
 }
