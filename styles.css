@@ -384,30 +384,38 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 
 /* 第一层：风格墙 */
 .sl-wall{flex:1;display:flex;flex-direction:column;min-height:0}
+/* 顶栏标题「拍照风格库」居中：计数浮到右侧，标题独占整行即可落在屏幕正中 */
+.sl-wall .topbar{position:relative}
+.sl-wall .topbar-title{text-align:center}
+.sl-wall .sl-wall-count{position:absolute;right:16px;top:50%;transform:translateY(-50%)}
+/* 店主预览时左侧多一枚返回键，补等量右内边距，标题仍是光学居中 */
+body.mode-admin .sl-wall .topbar-title{padding-right:52px}
 .sl-wall-stage{
   flex:1;position:relative;overflow:hidden;
   touch-action:none;-webkit-user-select:none;user-select:none;
 }
 .sl-wall-track{display:flex;height:100%;will-change:transform}
 .sl-wall-track.pv-anim{transition:transform .28s cubic-bezier(.22,.61,.36,1)}
-.sl-wall-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;padding:4px 16px 0}
+/* 卡片整体缩小：滑动器位移按 -index*100% 算，每屏必须仍是 100% 宽，
+   所以缩小靠「加大左右留白 + 收封面高度 + 压字号」实现，轨道宽度不动 */
+.sl-wall-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;justify-content:center;padding:6px 34px 0}
 .sl-cover{
-  flex:1;min-height:0;position:relative;
-  border-radius:20px;overflow:hidden;
+  flex:0 1 74%;min-height:0;position:relative;
+  border-radius:18px;overflow:hidden;
   background:var(--surface-2);border:1px solid var(--outline);
 }
 .sl-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.sl-wall-body{flex:0 0 auto;padding:16px 4px 0}
-.sl-wall-name{font-size:20px;font-weight:700;letter-spacing:.5px}
-.sl-wall-sub{font-size:13px;color:var(--text-2);margin-top:6px;line-height:1.6}
+.sl-wall-body{flex:0 0 auto;padding:14px 2px 0}
+.sl-wall-name{font-size:18px;font-weight:700;letter-spacing:.4px}
+.sl-wall-sub{font-size:12.5px;color:var(--text-2);margin-top:5px;line-height:1.6}
 .sl-wall-go{
-  margin-top:14px;display:inline-flex;align-items:center;gap:6px;
-  font-size:13px;font-weight:500;color:#fff;
+  margin-top:12px;display:inline-flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:500;color:#fff;
   background:linear-gradient(150deg,var(--primary),var(--primary-3));
-  border-radius:999px;padding:9px 18px;
+  border-radius:999px;padding:8px 16px;
   box-shadow:0 6px 20px rgba(139,92,246,.35);
 }
-.sl-wall-go::after{content:"›";font-size:16px;line-height:1}
+.sl-wall-go::after{content:"›";font-size:15px;line-height:1}
 .sl-wall-count{flex:0 0 auto;font-size:12px;color:var(--text-3);letter-spacing:1px}
 .sl-wall-tip{
   flex:0 0 auto;text-align:center;
@@ -418,7 +426,7 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 .sl-wall-add .sl-add-card{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:12px;text-align:center;
-  border:1.5px dashed var(--outline);border-radius:20px;
+  border:1.5px dashed var(--outline);border-radius:18px;   /* 与缩小后的风格卡圆角一致 */
   margin-bottom:14px;padding:24px;
 }
 .sl-add-ic{
