@@ -1,7 +1,7 @@
 {
-  "name": "照相馆选衣",
-  "short_name": "选衣",
-  "description": "照相馆服装挑选：左右滑动浏览拍摄风格，点开挑衣服",
+  "name": "石榴照相馆 · 选衣",
+  "short_name": "石榴照相馆",
+  "description": "石榴照相馆服装挑选：左右滑动浏览拍摄风格，点开挑衣服",
   "lang": "zh-CN",
   "id": "wardrobe-app",
   "start_url": "./index.html",

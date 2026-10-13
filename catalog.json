@@ -1,78 +1,90 @@
 {
-  "version": 1791874664000,
+  "version": 1791876446378,
   "comment": "自动生成：数据来自 images/ 目录。店主可在 数据管理页 调整名称/分类/颜色/标签/尺码，导出后覆盖本文件。",
   "categories": [
     {
       "id": "cat-id",
       "name": "证件照",
       "sort": 1,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-marriage",
       "name": "领证照",
       "sort": 2,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-parent",
       "name": "亲子照",
       "sort": 3,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-family",
       "name": "全家福",
       "sort": 4,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-person",
       "name": "个人写真",
       "sort": 5,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-birthday",
       "name": "生日写真",
       "sort": 6,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-image",
       "name": "形象照",
       "sort": 7,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-boy1",
       "name": "男宝宝周岁照",
       "sort": 8,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-girl1",
       "name": "女宝宝周岁照",
       "sort": 9,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-elder",
       "name": "老人像",
       "sort": 10,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-friend",
       "name": "闺蜜照",
       "sort": 11,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     },
     {
       "id": "cat-couple",
       "name": "情侣照",
       "sort": 12,
-      "desc": ""
+      "desc": "",
+      "cover": ""
     }
   ],
   "items": [

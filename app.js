@@ -1,5 +1,5 @@
 /* ============================================================
-   衣橱 · 轻选衣 — 应用逻辑
+   石榴照相馆 · 选衣 — 应用逻辑
    零依赖：原生 JS + IndexedDB + Service Worker
    ============================================================ */
 (function () {
@@ -338,12 +338,12 @@
       '</div>';
     }).join('');
 
-    /* 店主端：末位追加一张"添加风格卡"（顾客端不显示，客人永远看不到店主入口） */
+    /* 店主端：末位追加一张"添加模板卡"（顾客端不显示，客人永远看不到店主入口） */
     if (isAdminMode()) {
       html += '<div class="sl-wall-slide sl-wall-add" data-add="1">' +
         '<div class="sl-add-card">' +
           '<div class="sl-add-ic">＋</div>' +
-          '<div class="sl-add-t">添加风格卡</div>' +
+          '<div class="sl-add-t">添加模板卡</div>' +
           '<div class="sl-add-s">点这里新增一个拍照风格；之后用<br>「数据管理 → 图片批量导入」把衣服图导进该风格。</div>' +
           '<span class="sl-wall-go sl-add-go">点此添加</span>' +
         '</div>' +
@@ -495,7 +495,7 @@
     if (!name) { toast('请输入风格名称'); return Promise.resolve(null); }
     if (state.categories.some(function (c) { return c.name === name; })) { toast('已经有同名风格了'); return Promise.resolve(null); }
     var maxSort = state.categories.reduce(function (m, c) { return Math.max(m, c.sort || 0); }, 0);
-    var cat = { id: styleId(), name: name, sort: maxSort + 1, desc: '' };
+    var cat = { id: styleId(), name: name, sort: maxSort + 1, desc: '', cover: '' };
     return putAll('categories', [cat])
       .then(reload)
       .then(function () {
@@ -515,12 +515,23 @@
     var cnt = slCounts();
     box.innerHTML = state.categories.map(function (c) {
       var n = cnt[c.id] || 0;
-      return '<div class="style-row">' +
-        '<span class="style-row-name">' + esc(c.name) + '</span>' +
-        '<span class="style-row-num">' + n + ' 件</span>' +
+      var its = slStyleItems(c.id);
+      var custom = (typeof c.cover === 'string' && c.cover) ? c.cover : '';
+      var auto = its[0] && its[0].image ? its[0].image : '';
+      var thumb = custom || auto;
+      /* 占位符在前、图片在后（绝对定位叠放），图片缺失/加载失败时露出占位底 */
+      return '<div class="style-row" data-cat="' + escAttr(c.id) + '">' +
+        '<span class="style-row-thumb">' + placeholder({ id: c.id, name: c.name }) +
+          (thumb ? '<img draggable="false" src="' + escAttr(thumb) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '') +
+        '</span>' +
+        '<span class="style-row-main">' +
+          '<span class="style-row-name">' + esc(c.name) + '</span>' +
+          '<span class="style-row-meta">' + n + ' 件 · 封面' + (custom ? '已自定义' : (auto ? '自动' : '未设置')) + '</span>' +
+        '</span>' +
+        '<button class="style-row-btn" data-act="style-cover" data-cover-cat="' + escAttr(c.id) + '">封面</button>' +
         (n === 0 ? '<button class="style-row-del" data-del-cat="' + escAttr(c.id) + '" aria-label="删除空风格">×</button>' : '') +
       '</div>';
-    }).join('') || '<div class="style-row style-row-none">还没有风格卡，用下面输入框添加</div>';
+    }).join('') || '<div class="style-row style-row-none">还没有模板卡，用下面输入框添加</div>';
   }
 
   function deleteEmptyStyle(catId) {
@@ -570,6 +581,80 @@
     var el = $('#style-name-inline');
     if (!el) return;
     addStyle(el.value, function () { el.value = ''; });
+  }
+
+  /* ---------------- 卡片封面（店主端） ----------------
+     模板卡封面取值优先级：分类 cover 字段 → 该风格第一件衣服的图 → 占位底。
+     店主有两种定义方式：① 从这套风格的衣服里挑一张；② 单独上传一张封面图
+     （本地压缩后存本机 IndexedDB，离线可用；导出备份时会一并写进 JSON）。 */
+  var coverCatId = null;
+
+  function openCoverModal(catId) {
+    var c = state.categories.find(function (x) { return x.id === catId; });
+    if (!c) return;
+    coverCatId = catId;
+    renderCoverModal();
+    var m = $('#cover-modal');
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+  }
+  function closeCoverModal() {
+    var m = $('#cover-modal');
+    if (!m) return;
+    m.classList.remove('open');
+    m.setAttribute('aria-hidden', 'true');
+    coverCatId = null;
+  }
+  function renderCoverModal() {
+    var c = state.categories.find(function (x) { return x.id === coverCatId; });
+    if (!c) return;
+    var items = slStyleItems(c.id);
+    var custom = (typeof c.cover === 'string' && c.cover) ? c.cover : '';
+    var auto = items[0] && items[0].image ? items[0].image : '';
+    var shown = custom || auto;
+
+    $('#cover-modal-title').textContent = '卡片封面 · ' + c.name;
+    $('#cover-preview-img').innerHTML =
+      placeholder({ id: c.id, name: c.name }) +
+      (shown ? '<img draggable="false" src="' + escAttr(shown) + '" alt="" onerror="this.classList.add(\'img-err\')">' : '');
+    $('#cover-preview-txt').textContent = custom
+      ? '当前：自定义封面（' + (custom.indexOf('data:') === 0 ? '本机上传的图片' : custom) + '）'
+      : (auto ? '当前：自动（取该风格第一张衣服图）' : '当前：暂无图片，请用下面的方式添加');
+
+    /* 恢复自动：仅在已自定义时才有意义 */
+    var rst = $('[data-act="cover-reset"]');
+    if (rst) rst.style.display = custom ? '' : 'none';
+
+    /* 从本风格衣服里挑一张 */
+    var pick = $('#cover-pick');
+    if (!items.length) {
+      pick.innerHTML = '<div class="cover-pick-t">这套风格下还没有衣服。可以用上面的「上传一张封面图」先设好封面，之后再把衣服导进来。</div>';
+    } else {
+      pick.innerHTML = '<div class="cover-pick-t">或从这套风格的衣服里挑一张</div>' +
+        '<div class="cover-pick-grid">' +
+        items.map(function (it) {
+          var img = it.image
+            ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="" onerror="this.classList.add(\'img-err\')">'
+            : '';
+          var on = (custom && it.image && custom === it.image) ? ' on' : '';
+          return '<button class="cover-thumb' + on + '" data-img="' + escAttr(it.image || '') + '" aria-label="' + escAttr(it.name) + '">' +
+            placeholder(it) + img + '</button>';
+        }).join('') +
+        '</div>';
+    }
+  }
+  /* 写入封面：cover 为空串即恢复"自动取第一件衣服" */
+  function setStyleCover(catId, cover) {
+    var c = state.categories.find(function (x) { return x.id === catId; });
+    if (!c) return Promise.resolve();
+    var next = {
+      id: c.id, name: c.name, sort: c.sort || 0,
+      desc: c.desc || '', cover: cover || ''
+    };
+    return putAll('categories', [next]).then(reload).then(function () {
+      renderStyleWall(); renderStyleManage(); renderCoverModal();
+      toast(cover ? '已设置卡片封面' : '已恢复自动封面');
+    });
   }
 
   /* ---------------- 详情页 ---------------- */
@@ -622,7 +707,9 @@
       categories.push({
         id: c.id, name: c.name,
         sort: typeof c.sort === 'number' ? c.sort : i + 1,
-        desc: typeof c.desc === 'string' ? c.desc : ''
+        desc: typeof c.desc === 'string' ? c.desc : '',
+        /* cover：卡片封面图（路径 / URL / base64）。空串 = 自动取该风格第一件衣服的图 */
+        cover: typeof c.cover === 'string' ? c.cover : ''
       });
     });
 
@@ -881,6 +968,10 @@
       else if (act === 'style-add-inline') { submitInlineStyle(); }
       else if (act === 'style-create') { submitStyleModal(); }
       else if (act === 'modal-close') { closeStyleModal(); }
+      else if (act === 'style-cover') { openCoverModal(b.dataset.coverCat); }
+      else if (act === 'cover-close') { closeCoverModal(); }
+      else if (act === 'cover-upload') { if ($('#cover-input')) $('#cover-input').click(); }
+      else if (act === 'cover-reset') { if (coverCatId) setStyleCover(coverCatId, ''); }
       else if (act === 'dl-template') {
         download('wardrobe-template.json', { version: 1, categories: [], items: [] });
         toast('空模板已下载');
@@ -923,6 +1014,36 @@
       var d = e.target.closest('[data-del-cat]');
       if (!d) return;
       deleteEmptyStyle(d.dataset.delCat);
+    });
+
+    /* 封面弹窗：从本风格衣服里挑一张（空图标的按钮不响应） */
+    var pickBox = $('#cover-pick');
+    if (pickBox) pickBox.addEventListener('click', function (e) {
+      var t = e.target.closest('.cover-thumb');
+      if (!t || !coverCatId) return;
+      var url = t.dataset.img || '';
+      if (!url) { toast('这件衣服还没有图片'); return; }
+      setStyleCover(coverCatId, url);
+    });
+
+    /* 封面弹窗：上传本地图片（压缩后存本机，离线可用） */
+    var coverInput = $('#cover-input');
+    if (coverInput) coverInput.addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      this.value = '';
+      if (!f || !coverCatId) return;
+      var cat = coverCatId;
+      var btn = $('[data-act="cover-upload"]');
+      if (btn) btn.disabled = true;
+      toast('正在处理封面图…');
+      compressImage(f).then(function (r) {
+        return setStyleCover(cat, r.dataUrl);
+      }).then(function () {
+        if (btn) btn.disabled = false;
+      }).catch(function (err) {
+        if (btn) btn.disabled = false;
+        toast('封面设置失败：' + err.message);
+      });
     });
 
     /* 两个风格名输入框：回车即提交 */

@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#0B0910">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="照相馆服装挑选：左右滑动浏览拍摄风格，点开看里面的衣服，挑你喜欢的拍">
-<title>照相馆选衣</title>
+<meta name="description" content="石榴照相馆服装挑选：左右滑动浏览拍摄风格，点开看里面的衣服，挑你喜欢的拍">
+<title>石榴照相馆 · 选衣</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -24,7 +24,7 @@
         <path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z"/>
       </svg>
     </div>
-    <h1 class="splash-title">照相馆</h1>
+    <h1 class="splash-title">石榴照相馆</h1>
     <p class="splash-sub">挑选你的拍摄服装</p>
     <div class="splash-bar"><i></i></div>
   </div>
@@ -98,12 +98,12 @@
     </div>
 
     <div class="card">
-      <h3 class="card-title">拍照风格卡（风格墙）</h3>
-      <p class="card-tip">客人扫码后第一眼看到的就是这些风格卡。用上面的「图片批量导入」把衣服图片导入到对应风格，风格卡封面会自动取该风格的第一张衣服图。</p>
+      <h3 class="card-title">衣服模板卡（风格墙）</h3>
+      <p class="card-tip">客人扫码后第一眼看到的就是这些模板卡。先用上面的「图片批量导入」把衣服图导进对应风格，再点每行的 <b>封面</b> 自定义卡片封面 —— 可以从这套风格的衣服里挑一张，也可以上传一张专门拍的封面图；不设则自动取该风格第一张衣服图。</p>
       <div class="style-list" id="style-list"></div>
       <div class="style-add">
         <input type="text" id="style-name-inline" class="txt" placeholder="新风格名称，如「韩式证件照」" maxlength="12">
-        <button class="btn btn-primary" data-act="style-add-inline">添加风格卡</button>
+        <button class="btn btn-primary" data-act="style-add-inline">添加模板卡</button>
       </div>
       <button class="btn btn-ghost btn-block" data-act="preview-wall">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -191,8 +191,8 @@
 <div class="modal" id="style-modal" aria-hidden="true">
   <div class="modal-mask" data-act="modal-close"></div>
   <div class="modal-box">
-    <h3 class="modal-title">添加拍照风格卡</h3>
-    <p class="modal-tip">给这张卡起个名字，它会出现在客人扫码后的第一屏。</p>
+    <h3 class="modal-title">添加衣服模板卡</h3>
+    <p class="modal-tip">给这张卡起个名字，它会出现在客人扫码后的第一屏。封面可稍后在「衣服模板卡」列表里点「封面」自定义。</p>
     <input type="text" id="style-name" class="txt" placeholder="例如：韩式证件照" maxlength="12">
     <div class="modal-acts">
       <button class="btn btn-ghost" data-act="modal-close">取消</button>
@@ -200,6 +200,35 @@
     </div>
   </div>
 </div>
+
+<!-- ============ 卡片封面设置弹窗（店主端） ============ -->
+<div class="modal" id="cover-modal" aria-hidden="true">
+  <div class="modal-mask" data-act="cover-close"></div>
+  <div class="modal-box modal-box-lg">
+    <h3 class="modal-title" id="cover-modal-title">设置卡片封面</h3>
+    <p class="modal-tip">封面显示在客人扫码后的模板卡上。可以从这套风格的衣服里挑一张，也可以单独上传一张封面图。</p>
+
+    <div class="cover-preview">
+      <div class="cover-preview-img" id="cover-preview-img"></div>
+      <div class="cover-preview-txt" id="cover-preview-txt">当前：自动（取该风格第一张衣服图）</div>
+    </div>
+
+    <div class="cover-acts">
+      <button class="btn btn-primary btn-block" data-act="cover-upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        上传一张封面图
+      </button>
+      <button class="btn btn-ghost btn-block" data-act="cover-reset">不用自定义，恢复自动</button>
+    </div>
+
+    <div class="cover-pick" id="cover-pick"></div>
+
+    <div class="modal-acts">
+      <button class="btn btn-ghost" data-act="cover-close">关闭</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="cover-input" accept="image/*" hidden>
 
 <div class="toast" id="toast"></div>
 

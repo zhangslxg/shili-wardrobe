@@ -89,10 +89,22 @@ for frag, name in [
     ('function updateBrowserChrome', '放大层 chrome 更新'),
     ('function openStyleLib', '打开风格库'),
     ('function closeStyleLib', '关闭风格库（仅店主端）'),
-    ('function addStyle', '店主新增风格卡'),
+    ('function addStyle', '店主新增模板卡'),
     ('function deleteEmptyStyle', '删除空风格'),
-    ('function openStyleModal', '添加风格卡弹窗'),
-    ('function renderStyleManage', '店主端风格列表'),
+    ('function openStyleModal', '添加模板卡弹窗'),
+    ('function renderStyleManage', '店主端模板卡列表'),
+    ('function openCoverModal', '打开卡片封面设置弹窗'),
+    ('function renderCoverModal', '渲染封面弹窗（预览 + 可选图）'),
+    ('function setStyleCover', '写入封面字段'),
+    ("cover: typeof c.cover === 'string'", '导入时保留分类 cover 字段'),
+    ("cover: ''", '新建模板卡带空 cover'),
+    ("act === 'style-cover'", 'data-act: style-cover'),
+    ("act === 'cover-upload'", 'data-act: cover-upload'),
+    ("act === 'cover-reset'", 'data-act: cover-reset'),
+    ("act === 'cover-close'", 'data-act: cover-close'),
+    ("$('#cover-input')", '封面图片选择框'),
+    ("$('#cover-pick')", '从本风格衣服里选封面'),
+    ("c.cover", '风格墙读取自定义封面'),
     ('function hideScreens', '收起所有 screen（露出风格库）'),
     ('SL_EDGE', '边缘手势常量'),
     ('SL_CLOSE_DY', '下滑返回常量'),
@@ -138,8 +150,14 @@ for frag, name in [
     ('prefers-reduced-motion', '降低动效降级'),
     ('sl-immersive', '沉浸模式样式'),
     ('pv-anim', 'track 过渡类'),
-    ('.modal.open', '添加风格卡弹窗'),
-    ('.style-row', '风格管理行'),
+    ('.modal.open', '添加模板卡弹窗'),
+    ('.style-row', '模板卡管理行'),
+    ('.style-row-thumb', '管理行缩略封面'),
+    ('.style-row-btn', '管理行「封面」按钮'),
+    ('.modal-box-lg', '封面弹窗宽版容器'),
+    ('.cover-preview', '封面预览块'),
+    ('.cover-pick-grid', '从衣服选封面网格'),
+    ('.cover-thumb', '封面候选缩略图'),
     ('body.mode-admin .iconbtn.sl-admin-only', '店主专属控件显隐规则'),
 ]:
     check('CSS 要件: ' + name, frag in css)
@@ -150,8 +168,15 @@ check('.sl-slide img 含 max-width/max-height/auto',
       and 'width:auto' in m.group(1) and 'height:auto' in m.group(1))
 
 # 已删除的旧样式不应残留
-for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter', '.sl-soon-card']:
+for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter', '.sl-soon-card', '.style-row-num']:
     check('已清理死样式: ' + dead, dead not in css)
+
+# ---------- 7.5 品牌：石榴照相馆 ----------
+check('index.html 品牌为石榴照相馆', '石榴照相馆' in html)
+check('index.html 标题含石榴照相馆', '<title>石榴照相馆' in html)
+check('启动页标题为石榴照相馆', 'class="splash-title">石榴照相馆<' in html)
+check('manifest 名称含石榴照相馆', '石榴照相馆' in read('manifest.webmanifest'))
+check('offline.html 品牌为石榴照相馆', '石榴照相馆' in read('offline.html'))
 
 # ---------- 8. catalog.json schema ----------
 cat = json.loads(read('catalog.json'))
@@ -162,6 +187,8 @@ names = [c['name'] for c in sorted(cats, key=lambda c: c.get('sort', 0))]
 check('catalog 分类 id 唯一', len(catids) == len(cats))
 for c in cats:
     check('分类字段完整: ' + c.get('id', '?'), bool(c.get('id')) and bool(c.get('name')))
+for c in cats:
+    check('分类 cover 字段为字符串: ' + c.get('id', '?'), isinstance(c.get('cover'), str))
 check('12 种拍摄风格齐全且顺序正确', names == STYLES, str(names))
 check('物品字段完整 + 归属分类存在',
       all(bool(i.get('id')) and bool(i.get('name')) and i.get('categoryId') in catids for i in items))
@@ -178,7 +205,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v8', "var CACHE = 'wardrobe-v8';" in sw)
+check('sw 版本 v9', "var CACHE = 'wardrobe-v9';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
