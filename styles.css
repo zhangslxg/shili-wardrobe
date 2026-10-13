@@ -600,9 +600,13 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
      每屏仍是 100% 宽（滑动器按 -index*100% 算），两栏只在屏内重排。 */
   .sl-wall-slide{
     flex:0 0 100%;height:100%;
-    display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);
+    display:grid;
+    /* 封面固定 44%，文字列 auto 按内容自适应 —— 整组宽度跟着文字走，
+       justify-content:center 让「封面+文字」永远落在屏内视觉中心，
+       不会出现「文字短、右半列大片空」的假偏左。 */
+    grid-template-columns:minmax(0,44%) auto;
     grid-template-rows:minmax(0,1fr);
-    column-gap:20px;padding:4px 20px 0;
+    justify-content:center;column-gap:5%;padding:4px 0 0;
   }
   .sl-wall-slide .sl-cover{grid-column:1;grid-row:1;flex:none;height:100%;min-height:0}
   .sl-wall-slide .sl-wall-body{grid-column:2;grid-row:1;flex:none;align-self:center;padding:0}
