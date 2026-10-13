@@ -132,9 +132,25 @@ python -m http.server 8091 --bind 0.0.0.0
 |------|-----|------|
 | **顾客端**（二维码内容） | `https://zhangslxg.github.io/shili-wardrobe/index.html` | 启动动画 → 主界面；**无数据管理入口**；空库时各卡片显示「这套还在整理」，不暴露任何店主操作 |
 | **店主端**（独立入口） | 同上 + `#/admin` | 跳过启动动画，直达数据管理；页内有「店主模式」标识；顶栏可预览顾客视角 |
+| **店主端 App**（可安装） | `…/admin.html`（自愈跳转页） | 见下方「独立店主端 App」 |
 
-- 店主把 `#/admin` 链接存为浏览器书签即可（电脑 / 自己手机各存一份），无需安装任何 App
-- ⚠️ 店主端**只有 URL hash 一道门**，没有口令。任何拿到 `#/admin` 链接的人都能进店主界面，但只能改**他自己手机上的副本**，改不到店里或别人的数据（数据全在本机 IndexedDB，catalog.json 由店主手动覆盖）。二维码本身只带顾客端 URL，客人正常扫码碰不到店主端
+#### 独立店主端 App（v19 起，解决"装好了却进不了后台"）
+
+**根因**：PWA 的 `start_url` 固定是 `./index.html`，hash（`#/admin`）不在 start_url 里 —— 从首页安装出来的图标、Edge「创建快捷方式」勾选"在窗口中打开"，都会绕回顾客端，店主反复进不了后台（`#/admin` 直开本身无缺陷，CDP 实测通过）。
+
+**解法**：店主端拥有自己的 manifest 与 start_url，两个 App 并存：
+
+| 文件 | 作用 |
+|------|------|
+| `admin.html` | 自愈跳转页：`location.replace('index.html#/admin')`（replace 不留历史节点，后退不绕回顾客端）；自带 SW 注册与 noscript meta refresh 兜底 |
+| `admin.webmanifest` | 独立 id `wardrobe-admin`、名称「石榴照相馆 · 店主端」、`start_url: ./admin.html`，与顾客端 `wardrobe-app` 互不冲突 |
+| `admin-icon-192/512.png`、`admin-icon.svg` | 品牌衣架 + 右上角白圆紫螺母徽章，与顾客端图标一眼区分（生成器 `scripts/_gen_admin_icons.py`） |
+
+- 安装：Edge 打开 `…/admin.html` → 地址栏安装图标 → 得到「石榴照相馆 · 店主端」独立 App，双击即后台、断网可用
+- SW v19 起预缓存上述全部文件；断网导航回退改为**先按请求网址找缓存副本**，店主端 App 断网冷启动不再被塞回顾客端首页
+- `#/admin` 书签仍可用，但**安装 App 必须走 admin.html**——这是唯一让安装图标本身就是后台的办法
+
+- 店主端**只有 URL 一道门**，没有口令。任何拿到链接的人都能进店主界面，但只能改**他自己设备上的副本**，改不到店里或别人的数据（数据全在本机 IndexedDB，catalog.json 由店主手动覆盖）。二维码本身只带顾客端 URL，客人正常扫码碰不到店主端
 
 
 ### 在线衣服库 catalog.json（扫码方案的核心）
@@ -247,13 +263,18 @@ python -m http.server 8091 --bind 0.0.0.0
 ```
 衣橱App/
 ├── index.html            应用外壳（启动动画 / 数据管理 / 拍照风格库）
+├── admin.html            店主端独立 App 入口（自愈跳转 index.html#/admin，v19 新增）
 ├── styles.css            暗紫暗黑主题样式
 ├── app.js                应用逻辑（IndexedDB、渲染、导入校验、catalog 版本同步、风格库手势、双入口路由）
-├── sw.js                 Service Worker（v12：预缓存 + catalog 网络优先 + 离线提示页）
-├── manifest.webmanifest  PWA 清单（可安装、独立窗口、PNG 图标）
-├── icon.svg              应用图标（矢量）
-├── icon-192.png          PWA 安装图标 192×192（兼作 iOS apple-touch-icon）
-├── icon-512.png          PWA 安装图标 512×512（maskable）
+├── sw.js                 Service Worker（v19：预缓存 + catalog 网络优先 + 断网按网址回退 + 离线提示页）
+├── manifest.webmanifest  顾客端 PWA 清单（id wardrobe-app，start_url 固定顾客端）
+├── admin.webmanifest     店主端 PWA 清单（id wardrobe-admin，start_url 即后台，v19 新增）
+├── icon.svg              顾客端图标（矢量）
+├── icon-192.png          顾客端安装图标 192×192（兼作 iOS apple-touch-icon）
+├── icon-512.png          顾客端安装图标 512×512（maskable）
+├── admin-icon.svg        店主端图标（矢量：衣架 + 右上角白圆紫螺母徽章）
+├── admin-icon-192.png    店主端安装图标 192×192
+├── admin-icon-512.png    店主端安装图标 512×512（maskable）
 ├── db-template.json      空数据库模板（仅本地参考，不上线）
 ├── catalog.json          店里统一的在线图库（扫码方案核心，店主维护；当前 12 风格 / 9 件衣服）
 ├── offline.html          离线提示页（首次打开且无缓存时显示）
@@ -262,7 +283,7 @@ python -m http.server 8091 --bind 0.0.0.0
 ├── .gitattributes        行尾统一 LF + 二进制资源声明
 ├── .editorconfig         编辑器统一（UTF-8 无 BOM / LF / 2 空格）
 ├── .github/workflows/    GitHub Actions 自动发布（只发布站点资产白名单）
-├── scripts/              prepare_images.py（换图预检/压缩/清单）/ make_icons.py / make-https-qr.py / _check-all.py（完整性校验）
+├── scripts/              prepare_images.py（换图预检/压缩/清单）/ make_icons.py / make-https-qr.py / _check-all.py（完整性校验）/ _gen_admin_icons.py（店主端图标生成）
 │                         + requirements.txt（仅工具脚本用到的 Pillow / qrcode）
 ├── HTTPS+离线部署指南.md 部署/发布/验证完整文档（内部文档，不上线）
 └── README.md             本说明（内部文档，不上线）

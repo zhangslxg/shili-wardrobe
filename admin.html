@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0910">
+<meta name="description" content="石榴照相馆店主端：管理拍照风格模板卡与衣服清单，数据仅存本机">
+<title>石榴照相馆 · 店主端</title>
+<!-- 注意：本页只链接 admin.webmanifest（独立店主端 App）。
+     曾经把两个 manifest 混用过，安装出来的图标 start_url 是顾客端，白装。 -->
+<link rel="manifest" href="admin.webmanifest">
+<link rel="icon" type="image/svg+xml" href="admin-icon.svg">
+<link rel="apple-touch-icon" href="admin-icon-192.png">
+<style>
+  /* 本页只活一瞬间（随即跳转 index.html#/admin），样式全部内联、零外部请求。
+     下面这屏是跳转前的品牌过渡页：JS 被禁用 / 跳转受阻时也能看懂发生了什么。 */
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #0B0910; color: #EDE9FE;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  .mark {
+    width: 76px; height: 76px; border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px #2A2440, 0 14px 44px rgba(139, 92, 246, .28);
+  }
+  .mark svg { width: 76px; height: 76px; }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .04em; }
+  p { margin: 0; font-size: 13px; color: #A78BFA; }
+  .bar { width: 120px; height: 3px; border-radius: 2px; background: #2A2440; overflow: hidden; }
+  .bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: #8B5CF6;
+           animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  @media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 100%; } }
+</style>
+<script>
+  /* ============================================================
+     店主端独立 App 的 start_url 就是本页。
+     为什么需要它：顾客端 PWA 的 start_url 固定是 ./index.html，
+     hash（#/admin）不在 start_url 里 —— 安装出来的图标、
+     Edge「创建快捷方式」勾选"在窗口中打开"，都会绕回顾客端。
+     解法：给店主端一个自己的 manifest（admin.webmanifest），
+     start_url 指向本页；本页再自愈跳转进店主端本体。
+     · location.replace 而非 assign：不留历史节点，后退不会绕回顾客端
+     · 同一份 sw.js、同一个 scope：重复注册无害，且让本页满足安装性判定
+     ============================================================ */
+  location.replace('index.html#/admin');
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* 注册失败不阻断跳转 */ });
+  }
+</script>
+<noscript><meta http-equiv="refresh" content="0;url=index.html#/admin"></noscript>
+</head>
+<body>
+  <div class="mark">
+    <svg viewBox="0 0 512 512" aria-hidden="true">
+      <defs>
+        <linearGradient id="admbg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#6D28D9"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="112" fill="url(#admbg)"/>
+      <g transform="translate(256 250) scale(8.6) translate(-12 -12)">
+        <path d="M12 7.6a2 2 0 1 1 2-2c0 1.1-2 1.9-2 3.2" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M12 8.9 3.6 16.7a1.4 1.4 0 0 0 1 2.3h14.8a1.4 1.4 0 0 0 1-2.3z" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <circle cx="405" cy="100" r="78" fill="#EDE9FE"/>
+      <polygon points="405,62 438,81 438,119 405,138 372,119 372,81" fill="none" stroke="#7C3AED" stroke-width="12" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1>石榴照相馆 · 店主端</h1>
+  <p>正在进入数据管理…</p>
+  <div class="bar"><i></i></div>
+</body>
+</html>

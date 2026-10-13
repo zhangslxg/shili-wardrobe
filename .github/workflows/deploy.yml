@@ -34,13 +34,23 @@ jobs:
         run: |
           set -e
           mkdir -p _site
-          cp index.html styles.css app.js sw.js manifest.webmanifest offline.html \
-             icon.svg icon-192.png icon-512.png catalog.json .nojekyll _site/
+          cp index.html admin.html styles.css app.js sw.js \
+             manifest.webmanifest admin.webmanifest offline.html \
+             icon.svg icon-192.png icon-512.png \
+             admin-icon.svg admin-icon-192.png admin-icon-512.png \
+             catalog.json .nojekyll _site/
           cp -r images _site/images
           # 防呆：站点产物里不允许出现内部文档与脚本
           for bad in README.md scripts .github .gitignore db-template.json; do
             if [ -e "_site/$bad" ]; then
               echo "::error::站点产物里出现了不应公开的内容：$bad"
+              exit 1
+            fi
+          done
+          # 店主端独立 App 三件套必须都在（少一个线上就瘸：装不上 / 打不开 / 跳不了）
+          for need in admin.html admin.webmanifest admin-icon-192.png; do
+            if [ ! -e "_site/$need" ]; then
+              echo "::error::店主端资产缺失：$need"
               exit 1
             fi
           done

@@ -339,7 +339,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v18', "var CACHE = 'wardrobe-v18';" in sw)
+check('sw 版本 v19', "var CACHE = 'wardrobe-v19';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
@@ -425,6 +425,48 @@ check('P6：桌面容器放宽到 1240px', 'max-width:1240px' in css)
 # app.js 不得依赖 .data-scroll 子元素顺序（P6 包容器不能破坏渲染）
 appjs = read('app.js')
 check('P6：app.js 无 DOM 顺序依赖', 'data-scroll' not in appjs)
+
+# ---------- 12. 独立店主端 App（admin.html + admin.webmanifest） ----------
+# 背景：顾客端 PWA 的 start_url 固定是 ./index.html，hash（#/admin）不在 start_url 里，
+# 安装出来的图标、Edge「创建快捷方式」勾选"在窗口中打开"都会绕回顾客端，
+# 店主反复进不了后台（2026-10-15 实测 #/admin 直开代码无缺陷，纯入口问题）。
+# 解法：店主端有自己的 manifest，start_url 就是后台；admin.html 自愈跳转。
+admin_html = read('admin.html')
+check('admin.html 只链接 admin.webmanifest', 'href="admin.webmanifest"' in admin_html)
+check('admin.html 不串顾客端 manifest（装错 App 的根因）',
+      'href="manifest.webmanifest"' not in admin_html)
+check('admin.html 自愈跳转到 index.html#/admin',
+      "location.replace('index.html#/admin')" in admin_html)
+check('admin.html 用 replace 不留历史节点（后退不绕回顾客端）',
+      "location.assign('index.html#/admin')" not in admin_html)
+check('admin.html 注册同一个 sw.js（安装性判定 + 离线兜底）',
+      "navigator.serviceWorker.register('sw.js')" in admin_html)
+check('admin.html 无 JS 时有 meta refresh 兜底',
+      'http-equiv="refresh"' in admin_html and 'index.html#/admin' in admin_html)
+check('admin.html 标题为店主端', '<title>石榴照相馆 · 店主端</title>' in admin_html)
+p2 = P(); p2.feed(admin_html)
+check('admin.html 标签配对', not p2.errs and not p2.stack, str(p2.errs[:3] + p2.stack[:3]))
+aman = json.loads(read('admin.webmanifest'))
+check('admin manifest 有独立 id（与顾客端双 App 并存）',
+      bool(aman.get('id')) and aman.get('id') != man.get('id'))
+check('admin manifest start_url 指向 admin.html',
+      aman.get('start_url') in ('./admin.html', 'admin.html'))
+check('admin manifest 名称含店主端', '店主端' in aman.get('name', ''))
+check('admin manifest scope 与顾客端一致（同站双 App）', aman.get('scope') == man.get('scope'))
+check('admin manifest display 为 standalone', aman.get('display') == 'standalone')
+for ic in [i['src'] for i in aman.get('icons', [])]:
+    check('admin manifest 图标磁盘存在: ' + ic,
+          os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
+sw = read('sw.js')
+for a in ['admin.html', 'admin.webmanifest', 'admin-icon.svg',
+          'admin-icon-192.png', 'admin-icon-512.png']:
+    check('sw 预缓存 ' + a, ("'./" + a + "'") in sw)
+# 断网导航回退必须先按请求网址找缓存副本：店主端 App 断网冷启动
+# 若无条件回退 index.html，又会被塞回顾客端首页（进不了后台的离线版）
+check('sw 断网导航回退先按请求网址找副本', 'caches.match(e.request)' in sw)
+dep = read('.github/workflows/deploy.yml')
+for a in ['admin.html', 'admin.webmanifest', 'admin-icon-192.png', 'admin-icon-512.png']:
+    check('deploy.yml 发布 ' + a, a in dep)
 
 print('\nRESULT:', 'ALL PASS' if ok else 'HAS FAILURES')
 sys.exit(0 if ok else 1)

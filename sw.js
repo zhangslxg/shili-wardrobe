@@ -1,6 +1,15 @@
 /* ============================================================
    石榴照相馆 · 选衣 Service Worker — 零外部请求
    预缓存全部静态资源；catalog.json 网络优先；导航请求断网回退离线提示页
+   v19 变更：
+     · 新增「店主端独立 App」：admin.html（自愈跳转页，start_url 即后台）
+       + admin.webmanifest（独立 id wardrobe-admin，与顾客端 App 并存）
+       + admin-icon-192/512.png / admin-icon.svg（品牌衣架 + 右上角白圆紫螺母徽章）。
+       根因：顾客端 manifest 的 start_url 固定是 ./index.html，hash（#/admin）
+       不在其中 —— 安装出的图标、Edge「创建快捷方式」勾选"在窗口中打开"
+       都会绕回顾客端，店主反复进不了后台。现在店主端有自己的 start_url，
+       双击即后台；admin.html 用 location.replace 跳 index.html#/admin，
+       不留历史节点（后退不会绕回顾客端），断网时由本 SW 预缓存兜底。
    v18 变更：
      · 店主端数据管理页落地「P6 分组侧栏」横屏布局（用户 2026-10-14 选定）：
        index.html 把 导入/导出/数据格式/危险区 四张卡包进 .admin-side；
@@ -36,7 +45,7 @@
        提升缓存版本号确保客人端拿到新版
    注：images/ 下的图片不预缓存，首次浏览时按需写入缓存。
    ============================================================ */
-var CACHE = 'wardrobe-v18';
+var CACHE = 'wardrobe-v19';
 
 /* 预缓存清单：全部静态资源。
    注意：catalog.json 故意不在此列 —— 它走网络优先策略，
@@ -44,12 +53,17 @@ var CACHE = 'wardrobe-v18';
 var ASSETS = [
   './',
   './index.html',
+  './admin.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
+  './admin.webmanifest',
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
+  './admin-icon.svg',
+  './admin-icon-192.png',
+  './admin-icon-512.png',
   './offline.html'
 ];
 
@@ -115,13 +129,16 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (url.origin !== location.origin) return; /* 只接管本站资源，零外部请求原则不变 */
 
-  /* 1. 页面导航：网络优先；断网 → 已缓存的首页；再不行 → 离线提示页 */
+  /* 1. 页面导航：网络优先；断网 → 已缓存的对应页面；再不行 → 首页；最后 → 离线提示页 */
   if (e.request.mode === 'navigate') {
     e.respondWith(
       networkFirst(e.request).catch(function () {
-        return caches.match('./index.html').then(function (hit) {
-          return hit || caches.match('./offline.html');
-        });
+        /* 必须按请求网址先找缓存副本：admin.html 是店主端 App 的 start_url，
+           断网冷启动若无条件回退 index.html，店主又会被塞回顾客端首页
+           （"进不了后台"的离线版陷阱）。预缓存清单里有的页面都能离线直开。 */
+        return caches.match(e.request)
+          .then(function (hit) { return hit || caches.match('./index.html'); })
+          .then(function (hit) { return hit || caches.match('./offline.html'); });
       })
     );
     return;
