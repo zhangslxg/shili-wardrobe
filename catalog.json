@@ -1,6 +1,113 @@
 {
-  "version": 1791870768000,
-  "comment": "店里统一的在线图库。店主维护方式：数据管理页导入数据后点「导出当前数据」，把导出内容整体复制到本文件；version 用导出时间戳（客人端只认更大的版本号，更新才会同步到老客人手机）。客人扫码打开时自动拉取本文件，同 ID 覆盖、新 ID 追加、本机独有数据保留。换正式图流程：拍照→压到长边≤1400px→命名 主图_001.jpg 等放入 images/→数据管理页录入→导出覆盖本文件→update.bat 推送。",
-  "categories": [],
-  "items": []
+  "version": 1791871294595,
+  "comment": "自动生成：数据来自 images/ 目录。店主可在 数据管理页 调整名称/分类/颜色/标签/尺码，导出后覆盖本文件。",
+  "categories": [
+    {
+      "id": "cat-default",
+      "name": "在售商品",
+      "sort": 1,
+      "desc": ""
+    }
+  ],
+  "items": [
+    {
+      "id": "good-001",
+      "categoryId": "cat-default",
+      "name": "主图_002",
+      "image": "images/主图_002.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 1
+    },
+    {
+      "id": "good-002",
+      "categoryId": "cat-default",
+      "name": "主图_003",
+      "image": "images/主图_003.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 2
+    },
+    {
+      "id": "good-003",
+      "categoryId": "cat-default",
+      "name": "主图_004",
+      "image": "images/主图_004.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 3
+    },
+    {
+      "id": "good-004",
+      "categoryId": "cat-default",
+      "name": "主图_005",
+      "image": "images/主图_005.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 4
+    },
+    {
+      "id": "good-005",
+      "categoryId": "cat-default",
+      "name": "主图_006",
+      "image": "images/主图_006.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 5
+    },
+    {
+      "id": "good-006",
+      "categoryId": "cat-default",
+      "name": "主图_011",
+      "image": "images/主图_011.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 6
+    },
+    {
+      "id": "good-007",
+      "categoryId": "cat-default",
+      "name": "其他_007",
+      "image": "images/其他_007.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 7
+    },
+    {
+      "id": "good-008",
+      "categoryId": "cat-default",
+      "name": "其他_008",
+      "image": "images/其他_008.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 8
+    },
+    {
+      "id": "good-009",
+      "categoryId": "cat-default",
+      "name": "缩略图_001",
+      "image": "images/缩略图_001.jpg",
+      "sizes": [],
+      "colors": [],
+      "tags": [],
+      "desc": "",
+      "sort": 9
+    }
+  ]
 }
