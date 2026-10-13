@@ -27,7 +27,7 @@ body{
   background:var(--bg);
   color:var(--text);
   font-family:system-ui,-apple-system,"PingFang SC","HarmonyOS Sans SC","MiSans","Microsoft YaHei",sans-serif;
-  font-size:15px;line-height:1.5;
+  font-size:15px;line-height:1.6;text-wrap:pretty;
   overscroll-behavior:none;
   -webkit-user-select:none;user-select:none;
 }
@@ -35,6 +35,8 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 img{display:block}
 
 /* ---------- 屏幕切换 ---------- */
+/* 手机竖版是基准形态：一列、满高、固定定位。
+   宽屏（平板 / 横屏）由文件末尾的断点组接管，把「居中一列」放宽成真正利用宽度。 */
 .screen{height:100dvh}
 .screen{
   position:fixed;inset:0;display:none;flex-direction:column;
@@ -69,12 +71,12 @@ img{display:block}
 }
 .logo-mark svg{width:46px;height:46px}
 .splash-title{
-  margin-top:26px;font-size:32px;font-weight:700;letter-spacing:7px;text-indent:7px;
+  margin-top:26px;font-size:32px;font-weight:700;letter-spacing:7px;text-indent:7px;line-height:1.3;
   color:var(--text);
   animation:fadeUp .55s .5s cubic-bezier(.2,0,0,1) both;
 }
 .splash-sub{
-  margin-top:10px;font-size:13px;letter-spacing:4px;color:var(--text-2);
+  margin-top:10px;font-size:13.5px;letter-spacing:3px;text-indent:3px;color:var(--text-2);line-height:1.7;
   animation:fadeUp .55s .8s cubic-bezier(.2,0,0,1) both;
 }
 .splash-bar{
@@ -97,7 +99,7 @@ img{display:block}
   flex:0 0 auto;display:flex;align-items:center;gap:12px;
   padding:calc(12px + var(--safe-t)) 16px 12px;
 }
-.topbar-title{font-size:16px;font-weight:600;flex:1}
+.topbar-title{font-size:16px;font-weight:600;flex:1;line-height:1.4}
 .iconbtn{
   width:40px;height:40px;border-radius:13px;flex:0 0 auto;
   background:var(--surface-2);color:var(--text-2);
@@ -126,14 +128,14 @@ img.img-err{display:none}
   flex:1;background:var(--surface);border:1px solid var(--outline);
   border-radius:14px;padding:13px 15px;
 }
-.stat b{display:block;font-size:22px;font-weight:700;color:var(--primary-2)}
-.stat span{font-size:11.5px;color:var(--text-2)}
+.stat b{display:block;font-size:22px;font-weight:700;color:var(--primary-2);line-height:1.2}
+.stat span{font-size:12px;color:var(--text-2);line-height:1.5}
 .card{
   background:var(--surface);border:1px solid var(--outline);
   border-radius:18px;padding:16px;margin-bottom:14px;
 }
-.card-title{font-size:14.5px;font-weight:600;margin-bottom:12px}
-.card-tip{font-size:12px;color:var(--text-2);margin:10px 0 12px;line-height:1.6}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;line-height:1.4}
+.card-tip{font-size:12.5px;color:var(--text-2);margin:10px 0 12px;line-height:1.75;text-wrap:pretty}
 .card-danger{border-color:rgba(229,72,77,.3)}
 .seg{display:flex;background:var(--surface-2);border-radius:12px;padding:4px;gap:4px}
 .seg button{
@@ -204,7 +206,7 @@ img.img-err{display:none}
 /* ---------- 双入口：顾客端（默认）/ 店主端（#/admin） ---------- */
 /* 顾客端没有任何"数据管理"入口元素，全部店主功能由 .screen 与 .sl-admin-only 隔离 */
 .admin-badge{
-  flex:0 0 auto;font-size:11px;font-weight:500;letter-spacing:1px;
+  flex:0 0 auto;font-size:11.5px;font-weight:500;letter-spacing:1px;line-height:1.5;
   color:var(--primary-2);border:1px solid var(--primary-3);border-radius:999px;
   padding:3px 10px;white-space:nowrap;
 }
@@ -212,7 +214,7 @@ img.img-err{display:none}
 .sl-admin-only{display:none}
 body.mode-admin .iconbtn.sl-admin-only{display:flex}
 .foot-note{
-  text-align:center;font-size:11.5px;color:var(--text-3);line-height:1.8;
+  text-align:center;font-size:12px;color:var(--text-3);line-height:1.8;
   padding:6px 0 20px;
 }
 
@@ -230,8 +232,8 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 }
 .style-row-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .style-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.style-row-name{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.style-row-meta{font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.style-row-name{font-size:13.5px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.style-row-meta{font-size:11.5px;color:var(--text-3);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .style-row-btn{
   flex:0 0 auto;height:28px;padding:0 12px;border-radius:9px;
   font-size:12px;color:var(--primary-2);
@@ -271,7 +273,7 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 .item-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .item-row-name{
   display:block;width:100%;padding:0;text-align:left;
-  font-family:inherit;font-size:13.5px;line-height:1.35;color:var(--text);
+  font-family:inherit;font-size:13.5px;line-height:1.45;color:var(--text);
   background:transparent;border:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
@@ -279,7 +281,7 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 /* 覆盖 .sel 的表单尺寸，压缩成行内小下拉 */
 .sel.item-row-cat{
   width:100%;height:28px;padding:0 26px 0 9px;margin:0;
-  font-size:12px;border-radius:9px;background-position:right 9px center;
+  font-size:12.5px;border-radius:9px;background-position:right 9px center;
   color:var(--text-2);
 }
 .item-row-del{
@@ -324,8 +326,8 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
   transform:translateY(10px) scale(.97);transition:transform .22s cubic-bezier(.32,.72,.35,1);
 }
 .modal.open .modal-box{transform:none}
-.modal-title{font-size:17px;font-weight:700}
-.modal-tip{font-size:12.5px;color:var(--text-2);line-height:1.7;margin:8px 0 14px}
+.modal-title{font-size:17px;font-weight:700;line-height:1.35}
+.modal-tip{font-size:12.5px;color:var(--text-2);line-height:1.75;margin:8px 0 14px;text-wrap:pretty}
 .modal-acts{display:flex;gap:10px;margin-top:16px}
 .modal-acts .btn{flex:1}
 .modal-box-lg{max-width:400px;max-height:84vh;overflow-y:auto;scrollbar-width:none}
@@ -342,10 +344,10 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
   position:relative;overflow:hidden;background:var(--surface-3);
 }
 .cover-preview-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cover-preview-txt{font-size:12.5px;color:var(--text-2);line-height:1.65;word-break:break-all}
+.cover-preview-txt{font-size:12.5px;color:var(--text-2);line-height:1.7;overflow-wrap:anywhere}
 .cover-acts{display:flex;flex-direction:column}
 .cover-pick{margin-top:18px}
-.cover-pick-t{font-size:12px;color:var(--text-3);line-height:1.7;margin-bottom:9px}
+.cover-pick-t{font-size:12.5px;color:var(--text-3);line-height:1.7;margin-bottom:9px}
 .cover-pick-grid{
   display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
   max-height:216px;overflow-y:auto;scrollbar-width:none;padding:2px;
@@ -366,7 +368,7 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
   max-width:82%;text-align:center;
   background:var(--surface-3);color:var(--text);
   border:1px solid var(--outline);
-  font-size:13px;padding:11px 18px;border-radius:12px;
+  font-size:13.5px;line-height:1.55;padding:11px 18px;border-radius:12px;
   box-shadow:0 10px 32px rgba(0,0,0,.5);
   opacity:0;pointer-events:none;transition:all .25s;
 }
@@ -405,21 +407,21 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   background:var(--surface-2);border:1px solid var(--outline);
 }
 .sl-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.sl-wall-body{flex:0 0 auto;padding:14px 2px 0}
-.sl-wall-name{font-size:18px;font-weight:700;letter-spacing:.4px}
-.sl-wall-sub{font-size:12.5px;color:var(--text-2);margin-top:5px;line-height:1.6}
+.sl-wall-body{flex:0 0 auto;padding:14px 0 0}
+.sl-wall-name{font-size:18px;font-weight:700;letter-spacing:.4px;line-height:1.3;text-wrap:balance}
+.sl-wall-sub{font-size:12.5px;color:var(--text-2);margin-top:5px;line-height:1.7;text-wrap:pretty}
 .sl-wall-go{
   margin-top:12px;display:inline-flex;align-items:center;gap:6px;
-  font-size:12.5px;font-weight:500;color:#fff;
+  font-size:12.5px;font-weight:500;line-height:1.2;color:#fff;
   background:linear-gradient(150deg,var(--primary),var(--primary-3));
   border-radius:999px;padding:8px 16px;
   box-shadow:0 6px 20px rgba(139,92,246,.35);
 }
 .sl-wall-go::after{content:"›";font-size:15px;line-height:1}
-.sl-wall-count{flex:0 0 auto;font-size:12px;color:var(--text-3);letter-spacing:1px}
+.sl-wall-count{flex:0 0 auto;font-size:12px;color:var(--text-3);letter-spacing:1px;line-height:1.4}
 .sl-wall-tip{
   flex:0 0 auto;text-align:center;
-  font-size:11.5px;color:var(--text-3);line-height:1.8;
+  font-size:12px;color:var(--text-3);line-height:1.8;
   padding:12px 16px calc(14px + var(--safe-b));
 }
 /* 店主端末位"添加风格卡"（顾客端不渲染这张卡） */
@@ -435,8 +437,8 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   font-size:28px;color:var(--primary-2);
   background:var(--surface-2);border:1px solid var(--outline);
 }
-.sl-add-t{font-size:18px;font-weight:700;color:var(--text)}
-.sl-add-s{font-size:12.5px;color:var(--text-3);line-height:1.8;max-width:280px}
+.sl-add-t{font-size:18px;font-weight:700;color:var(--text);line-height:1.35}
+.sl-add-s{font-size:12.5px;color:var(--text-3);line-height:1.7;max-width:280px;text-wrap:pretty}
 
 /* 第二层：模板库（衣服缩略图网格，从风格墙上移淡入） */
 .sl-gridview{
@@ -462,14 +464,14 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
 .sl-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .sl-thumb-name{
   position:relative;z-index:2;width:100%;
-  font-size:11.5px;color:var(--text);line-height:1.3;
-  padding:18px 8px 8px;
+  font-size:12.5px;color:var(--text);line-height:1.4;
+  padding:20px 9px 9px;text-wrap:pretty;
   background:linear-gradient(transparent, rgba(11,9,16,.82));
 }
 /* 空风格（店主还没往里放衣服）的网格空态 */
 .sl-grid-empty{
   grid-column:1 / -1;text-align:center;color:var(--text-3);
-  font-size:13px;line-height:2;padding:56px 0;
+  font-size:13px;line-height:1.9;padding:56px 0;text-wrap:pretty;
 }
 
 /* 第三层：放大查看（从网格上移淡入，左右滑动浏览上一件/下一件） */
@@ -495,7 +497,7 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   background:var(--surface-2);border-radius:14px;
 }
 .sl-count{
-  flex:0 0 auto;font-size:13px;color:var(--text-2);
+  flex:0 0 auto;font-size:13px;color:var(--text-2);line-height:1.4;
   letter-spacing:1px;font-variant-numeric:tabular-nums;
 }
 .sl-dots{
@@ -510,9 +512,9 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
   border-top:1px solid var(--outline);
 }
 .sl-info{flex:1;min-width:0}
-.sl-name{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-name{font-size:17px;font-weight:600;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 仅一行文字：所属拍摄风格（+ 店主选填的一句说明）；不放任何商品规格 */
-.sl-meta{font-size:12.5px;color:var(--text-2);margin-top:6px;line-height:1.5}
+.sl-meta{font-size:12.5px;color:var(--text-2);margin-top:7px;line-height:1.65}
 /* 单击图片进/出沉浸模式：隐藏顶栏、底栏与圆点 */
 .sl-chrome{transition:opacity .2s}
 .sl-browser.sl-immersive .sl-chrome{opacity:0;pointer-events:none}
@@ -520,4 +522,81 @@ body.mode-admin .sl-wall .topbar-title{padding-right:52px}
 /* 系统降低动效时全部过渡直出 */
 @media (prefers-reduced-motion:reduce){
   .stylelib,.sl-gridview,.sl-browser,.sl-wall-track,.sl-track,.sl-chrome,.sl-dots,.modal,.toast{transition:none}
+}
+
+/* ============================================================
+   宽屏断点组（平板 / 横屏）
+   ------------------------------------------------------------
+   手机竖版是基准，以上全部规则针对 ≤ 559px 生效，一个字节不动。
+   这里逐级放宽容器与栅格，让平板和横屏真正用上宽度，而不是
+   「居中一列手机宽、两侧大片深色底」。
+
+   注意：断点只动「容器宽度 + 栅格列数 + 留白」，不动任何配色、
+   字号与元素结构；风格墙滑动器仍是 -index*100% 轨道位移，
+   所以 .sl-wall-slide 在任何宽度下都必须保持 flex:0 0 100%。
+   ============================================================ */
+
+/* --- 一级：大手机横屏 / 小平板（≥ 720px）--- */
+@media (min-width:720px){
+  /* 容器从「手机宽一列」放宽到平板宽。
+     风格墙本身保持竖排（上封面下文字）不动 —— 高度充足时竖排就是最优解，
+     容器变宽后封面自然等比放大，无需改结构。
+     注意 .stylelib 是主界面覆盖层（fixed inset:0 无 max-width），
+     必须与 .screen 一起收窄居中，否则宽屏下风格墙直接全宽、与启动页跳变。 */
+  .screen,.stylelib{max-width:720px;margin:0 auto}
+
+  /* 模板库网格：3 列 → 4 列 */
+  .sl-grid-scroll{grid-template-columns:repeat(4,1fr);gap:12px;padding:6px 20px calc(22px + var(--safe-b))}
+
+  /* 店主端封面选择网格：4 列 → 6 列 */
+  .cover-pick-grid{grid-template-columns:repeat(6,1fr)}
+  /* 大弹窗放宽，避免宽屏下仍是手机尺寸 */
+  .modal-box{max-width:420px}
+  .modal-box-lg{max-width:520px}
+}
+
+/* --- 二级：平板竖屏 / 笔电窗口（≥ 900px）--- */
+@media (min-width:900px){
+  .screen,.stylelib{max-width:880px;margin:0 auto}
+
+  /* 模板库网格 4 列 → 5 列；单张更小更密，适合宽屏浏览 */
+  .sl-grid-scroll{grid-template-columns:repeat(5,1fr);gap:14px;padding:8px 28px calc(26px + var(--safe-b))}
+
+  /* 放大查看：照片在一个更宽但更矮的舞台里，改为「两侧留白压缩」避免照片被拉得过高 */
+  .sl-slide{padding:16px 48px}
+
+  /* 店主端数据页：宽屏改双列，不再一条到底。
+     统计行与导入卡是「整行语义」，跨两列；其余卡片进栅格。 */
+  .data-scroll{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;
+               padding:16px 20px calc(24px + var(--safe-b))}
+  .data-scroll>.stat-row,
+  .data-scroll>.card:first-of-type{grid-column:1 / -1}
+  .data-scroll>.card{margin-bottom:0}
+}
+
+/* --- 三级：横屏低矮视口（高度受限）--- */
+/* 横屏手机/平板高度往往只有 400~500px，启动页与放大查看需要压缩纵向间距 */
+@media (min-width:720px) and (max-height:560px){
+  .logo-mark{width:68px;height:68px;border-radius:22px}
+  .logo-mark svg{width:34px;height:34px}
+  .splash-title{margin-top:16px;font-size:26px;letter-spacing:6px;text-indent:6px}
+  .splash-sub{margin-top:6px;font-size:12.5px;letter-spacing:2.5px;text-indent:2.5px}
+  .splash-bar{margin-top:20px}
+
+  /* 风格墙：横屏低矮（高度只有 400~500px）下，竖排会让封面压成横条，
+     改「左封面右文字」两栏 —— 封面撑满高度、文字右侧垂直居中。
+     每屏仍是 100% 宽（滑动器按 -index*100% 算），两栏只在屏内重排。 */
+  .sl-wall-slide{
+    flex:0 0 100%;height:100%;
+    display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr);
+    column-gap:20px;padding:4px 20px 0;
+  }
+  .sl-wall-slide .sl-cover{grid-column:1;grid-row:1;flex:none;height:100%;min-height:0}
+  .sl-wall-slide .sl-wall-body{grid-column:2;grid-row:1;flex:none;align-self:center;padding:0}
+  .sl-wall-tip{padding:8px 16px calc(10px + var(--safe-b))}
+
+  /* 放大查看：横屏的最大价值是照片更大，底栏压薄 */
+  .sl-slide{padding:8px 56px}
+  .sl-bar{padding:8px 16px calc(10px + var(--safe-b))}
 }

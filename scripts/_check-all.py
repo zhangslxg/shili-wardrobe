@@ -333,7 +333,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v13', "var CACHE = 'wardrobe-v13';" in sw)
+check('sw 版本 v14', "var CACHE = 'wardrobe-v14';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):
@@ -344,6 +344,37 @@ check('预缓存清单不含已删除的 preview.html', 'preview.html' not in as
 check('apple-touch-icon', 'apple-touch-icon' in html)
 check('workflow 存在', os.path.exists(os.path.join(APP, '.github/workflows/deploy.yml')))
 check('.nojekyll 存在', os.path.exists(os.path.join(APP, '.nojekyll')))
+
+# ---------- 10. 宽屏适配（平板 / 横屏） ----------
+# orientation 放开为 any，否则装到主屏后横屏被系统锁死，宽屏断点形同虚设
+check('manifest orientation 已放开为 any', man.get('orientation') == 'any')
+css = read('styles.css')
+# 宽屏断点组必须存在（三档：720 / 900 / 横屏低矮）
+check('宽屏断点 ≥720px', '@media (min-width:720px)' in css)
+check('宽屏断点 ≥900px', '@media (min-width:900px)' in css)
+check('横屏低矮断点（宽≥720 且高≤560）',
+      '@media (min-width:720px) and (max-height:560px)' in css)
+# 手机竖版基准容器仍是 520px，窄屏不得被宽屏规则污染
+check('窄屏基准容器仍是 max-width:520px', 'max-width:520px' in css)
+# 风格墙每屏都必须保持 100% 宽（滑动器位移按 -index*100% 轨道宽算），
+# 任何宽度下都不得被改窄，否则翻页越滑越偏
+check('风格墙每屏仍为 flex:0 0 100%', '.sl-wall-slide{flex:0 0 100%' in css
+      or 'sl-wall-slide{flex:0 0 100%' in css)
+# 横屏低矮才允许左右分栏，且分栏后 slide 仍是 100% 宽
+check('横屏低矮 slide 未改窄（仍 100% 宽两栏）',
+      re.search(r'\.sl-wall-slide\{[^}]*flex:0 0 100%[^}]*display:grid', css) is not None)
+# 宽屏网格必须真的加列（否则等于没适配）
+check('宽屏模板库网格加列到 4 列',
+      'grid-template-columns:repeat(4,1fr);gap:12px' in css)
+check('宽屏模板库网格加列到 5 列',
+      'grid-template-columns:repeat(5,1fr);gap:14px' in css)
+# 排版优化落点（补丁必须真的进了 styles.css）
+check('排版优化：text-wrap 已落回', css.count('text-wrap') >= 8)
+check('排版优化：overflow-wrap:anywhere 已落回', 'overflow-wrap:anywhere' in css)
+# 中文排版约定：中文大标题禁止负字距
+check('无中文标题负字距', not re.search(r'letter-spacing:\s*-\d', css))
+check('无 CRLF 污染', '\r\n' not in open(os.path.join(APP, 'styles.css'),
+      encoding='utf-8', newline='').read())
 
 print('\nRESULT:', 'ALL PASS' if ok else 'HAS FAILURES')
 sys.exit(0 if ok else 1)

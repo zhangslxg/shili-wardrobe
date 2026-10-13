@@ -9,3 +9,6 @@ desktop.ini
 
 # 本地一键脚本（不进仓库、不上网站）
 *.bat
+
+# 本地验证脚本 + 出图产物（宽屏/横屏实拍、诊断脚本、Edge 临时 profile）
+_verify/
