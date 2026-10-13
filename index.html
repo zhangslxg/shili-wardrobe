@@ -33,21 +33,8 @@
 <!-- 说明：本应用没有独立的"主界面 / 首页"。
      顾客扫码后经启动动画直接进入下方「拍照风格库」，风格库即主界面。 -->
 
-<!-- ============ 服装详情 ============ -->
-<section id="detail" class="screen detail">
-  <header class="topbar">
-    <button class="iconbtn" data-act="back" aria-label="返回">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-    </button>
-    <span class="topbar-title" id="detail-cat">分类</span>
-  </header>
-  <div class="detail-scroll">
-    <div class="detail-img" id="detail-img"></div>
-    <h2 class="detail-name" id="detail-name"></h2>
-    <div class="detail-meta" id="detail-meta"></div>
-    <p class="detail-desc" id="detail-desc"></p>
-  </div>
-</section>
+<!-- 说明：本应用不做任何商品化呈现 —— 没有商品列表、价格、库存、规格（尺码/颜色）、
+     购买/加购/下单等模块。顾客视角只有「拍照风格 → 衣服 → 放大看图」。 -->
 
 <!-- ============ 数据管理 ============ -->
 <section id="data" class="screen data">
@@ -86,7 +73,7 @@
           选择图片批量导入（PNG / JPG）
         </button>
         <input type="file" id="image-input" accept="image/*" multiple hidden>
-        <p class="card-tip" id="img-tip">可一次多选；图片自动压缩后存入本机（完全离线），文件名即为服装名，尺码等详细信息可随后用 JSON 合并导入补全。</p>
+        <p class="card-tip" id="img-tip">可一次多选；图片自动压缩后存入本机（完全离线），文件名即为服装名。名称与说明可随后用 JSON 合并导入补全。</p>
       </div>
 
       <details class="fmt">
@@ -182,7 +169,6 @@
         <div class="sl-name" id="sl-name"></div>
         <div class="sl-meta" id="sl-meta"></div>
       </div>
-      <button class="btn btn-primary sl-detail-btn" data-act="sl-detail">查看详情</button>
     </footer>
   </div>
 </section>

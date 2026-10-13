@@ -109,16 +109,10 @@
     for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
     return Math.abs(h);
   }
-  function isHexColor(c) { return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(c || '')); }
+  /* 占位底：图片缺失 / 未加载时露出的首字色块（颜色由 id/名称哈希决定，稳定不闪变） */
   function placeholder(it) {
-    var c = (it.colors && it.colors[0]) || '';
-    var bg;
-    if (isHexColor(c)) {
-      bg = 'linear-gradient(150deg,' + c + ',' + 'rgba(11,9,16,.92)' + ')';
-    } else {
-      var h = hashStr(it.id || it.name);
-      bg = 'linear-gradient(150deg,hsl(' + (h % 360) + ' 42% 30%),hsl(' + ((h + 40) % 360) + ' 38% 16%))';
-    }
+    var h = hashStr(it.id || it.name);
+    var bg = 'linear-gradient(150deg,hsl(' + (h % 360) + ' 42% 30%),hsl(' + ((h + 40) % 360) + ' 38% 16%))';
     var ch = esc(String(it.name || '?').trim().charAt(0));
     return '<div class="ph" style="background:' + bg + '"><span>' + ch + '</span></div>';
   }
@@ -142,38 +136,19 @@
 
   /* ---------------- 视图切换 ----------------
      本应用没有独立的"首页"：顾客端的主界面就是「拍照风格库」（固定覆盖层）。
-     .screen 只剩 启动动画 / 服装详情 / 数据管理 三种，
+     .screen 只剩 启动动画 / 数据管理 两种，
      收起全部 .screen 即露出底下的风格库。                                */
-  function hideScreens() {
-    state.view = '';
-    $$('.screen').forEach(function (s) { s.classList.remove('active'); });
-  }
   function showView(v) {
     state.view = v;
     $$('.screen').forEach(function (s) { s.classList.remove('active'); });
     $('#' + v).classList.add('active');
   }
-  function openView(v) {
-    showView(v);
-    try { history.pushState({ view: v }, ''); } catch (e) {}
-  }
-  function closeView() {
-    if (history.state && history.state.view) { history.back(); }
-    else { hideScreens(); }
-  }
   window.addEventListener('popstate', function () {
-    var s = history.state || {};
-    /* 详情页返回：收起详情层，露出底下的风格库（放大查看层仍在，可继续左右滑） */
-    if (state.view === 'detail') {
-      if (sl.open) { hideScreens(); } else { showView('data'); }
-      return;
-    }
-    if (sl.open) {
-      /* 逐层回退：放大查看 → 模板库网格 → 风格墙
-         （风格墙是最外层，在墙上再按返回即离开页面，交给浏览器默认行为） */
-      if (sl.layer === 'browser') { slToGrid(); return; }
-      if (sl.layer === 'grid') { slToWall(); return; }
-    }
+    if (!sl.open) return;
+    /* 逐层回退：放大查看 → 模板库网格 → 风格墙
+       （风格墙是最外层，在墙上再按返回即离开页面，交给浏览器默认行为） */
+    if (sl.layer === 'browser') { slToGrid(); return; }
+    if (sl.layer === 'grid') { slToWall(); return; }
   });
 
   /* ---------------- 双入口：顾客端（默认）/ 店主端（#/admin） ----------------
@@ -332,8 +307,8 @@
         '<div class="sl-cover">' + placeholder(its[0] || { id: c.id, name: c.name }) + img + '</div>' +
         '<div class="sl-wall-body">' +
           '<div class="sl-wall-name">' + esc(c.name) + '</div>' +
-          '<div class="sl-wall-sub">' + (its.length ? its.length + ' 件衣服' : '衣服整理中') + '</div>' +
-          '<span class="sl-wall-go">' + (its.length ? '进去挑衣服' : '待上架') + '</span>' +
+          '<div class="sl-wall-sub">' + (its.length ? its.length + ' 件衣服' : '这套还在整理') + '</div>' +
+          (its.length ? '<span class="sl-wall-go">进去挑衣服</span>' : '') +
         '</div>' +
       '</div>';
     }).join('');
@@ -415,12 +390,12 @@
     if (!it) return;
     $('#sl-count').textContent = (i + 1) + ' / ' + n;
     $('#sl-name').textContent = it.name;
-    var meta = '';
-    (it.colors || []).forEach(function (c) {
-      meta += '<span class="meta-chip"><i class="dot" style="background:' + (isHexColor(c) ? escAttr(c) : 'var(--primary)') + '"></i>' + esc(c) + '</span>';
-    });
-    (it.tags || []).forEach(function (t) { meta += '<span class="meta-chip tag">' + esc(t) + '</span>'; });
-    $('#sl-meta').innerHTML = meta;
+    /* 只显示「属于哪个拍摄风格」+（店主可选填的）一句说明；
+       不再展示尺码 / 颜色 / 标签等商品规格 */
+    var cat = state.categories.find(function (c) { return c.id === it.categoryId; });
+    var meta = cat ? cat.name : '';
+    if (it.desc) meta += (meta ? ' · ' : '') + it.desc;
+    $('#sl-meta').textContent = meta;
     $$('#sl-dots .sl-dot').forEach(function (d, j) { d.classList.toggle('on', j === i); });
   }
   function slToWall() {
@@ -657,28 +632,6 @@
     });
   }
 
-  /* ---------------- 详情页 ---------------- */
-  function openDetail(id) {
-    var it = state.items.find(function (x) { return x.id === id; });
-    if (!it) return;
-    var cat = state.categories.find(function (c) { return c.id === it.categoryId; });
-    $('#detail-cat').textContent = cat ? cat.name : '未分类';
-    $('#detail-img').innerHTML =
-      placeholder(it) +
-      (it.image ? '<img draggable="false" src="' + escAttr(it.image) + '" alt="' + escAttr(it.name) + '" onerror="this.classList.add(\'img-err\')">' : '');
-    $('#detail-name').textContent = it.name;
-    var meta = '';
-    (it.colors || []).forEach(function (c) {
-      meta += '<span class="meta-chip"><i class="dot" style="background:' + (isHexColor(c) ? escAttr(c) : 'var(--primary)') + '"></i>' + esc(c) + '</span>';
-    });
-    (it.sizes || []).forEach(function (s) { meta += '<span class="meta-chip">尺码 ' + esc(s) + '</span>'; });
-    (it.tags || []).forEach(function (t) { meta += '<span class="meta-chip tag">' + esc(t) + '</span>'; });
-    $('#detail-meta').innerHTML = meta;
-    $('#detail-desc').textContent = it.desc || '';
-    $('#detail-desc').style.display = it.desc ? '' : 'none';
-    openView('detail');
-  }
-
   /* ---------------- 数据管理 ---------------- */
   function renderStats() {
     $('#stat-row').innerHTML =
@@ -729,12 +682,11 @@
       if (itemIds[it.id]) { warnings.push(at + ' id "' + it.id + '" 重复，已跳过后者'); return; }
       itemIds[it.id] = true;
       if (it.image && typeof it.image !== 'string') { errors.push(at + ' 的 image 必须是字符串（URL 或 base64）'); return; }
+      /* 只保留挑选服装真正需要的字段：名称 / 图片 / 说明 / 排序。
+         sizes、colors、tags 等商品规格字段不再收录（历史 JSON 里的这些键会被静默忽略，不报错）。 */
       items.push({
         id: it.id, categoryId: it.categoryId, name: it.name,
         image: typeof it.image === 'string' ? it.image : '',
-        sizes: Array.isArray(it.sizes) ? it.sizes.map(String) : [],
-        colors: Array.isArray(it.colors) ? it.colors.map(String) : [],
-        tags: Array.isArray(it.tags) ? it.tags.map(String) : [],
         desc: typeof it.desc === 'string' ? it.desc : '',
         sort: typeof it.sort === 'number' ? it.sort : i + 1
       });
@@ -890,7 +842,7 @@
       else {
         catId = 'cat-img-' + Date.now().toString(36);
         var maxSort = state.categories.reduce(function (m, c) { return Math.max(m, c.sort || 0); }, 0);
-        newCat = { id: catId, name: '新风格', sort: maxSort + 1, desc: '导入图片时新建' };
+        newCat = { id: catId, name: '新风格', sort: maxSort + 1, desc: '导入图片时新建', cover: '' };
       }
     }
 
@@ -905,7 +857,7 @@
             categoryId: catId,
             name: nameFromFile(f),
             image: r.dataUrl,
-            sizes: [], colors: [], tags: ['图片导入'], desc: '',
+            desc: '',
             sort: i + 1
           });
         }).catch(function (err) { errors.push(err.message); });
@@ -962,8 +914,6 @@
       if (act === 'sl-close') { closeStyleLib(); }
       else if (act === 'sl-back-wall') { slBackWall(); }
       else if (act === 'sl-back-grid') { slBackGrid(); }
-      else if (act === 'sl-detail') { var cur = sl.items[sl.index]; if (cur) openDetail(cur.id); }
-      else if (act === 'back') { closeView(); }
       else if (act === 'preview-wall') { openStyleLib(); }
       else if (act === 'style-add-inline') { submitInlineStyle(); }
       else if (act === 'style-create') { submitStyleModal(); }
@@ -1095,10 +1045,7 @@
 '      "categoryId": "cat-id",\n' +
 '      "name": "藏青西装外套",\n' +
 '      "image": "images/主图_001.jpg（或 https 链接 / base64）",\n' +
-'      "sizes": ["S", "M", "L"],\n' +
-'      "colors": ["#1F2937"],\n' +
-'      "tags": ["显瘦", "上镜"],\n' +
-'      "desc": "适合证件照拍摄的外套",\n' +
+'      "desc": "上镜显精神，肩线平整",\n' +
 '      "sort": 1\n' +
 '    }\n' +
 '  ]\n' +
@@ -1107,6 +1054,7 @@
 '说明：\n' +
 '· categories = 风格墙上的卡片（证件照 / 领证照 / 亲子照…），cover 留空则自动取该风格第一件衣服的图；\n' +
 '· items = 某风格下的衣服，categoryId 必须指向上面的风格 id；\n' +
+'· 本应用不做销售呈现：条目只保留名称、图片、说明、排序，其它键一律忽略；\n' +
 '· 更新线上内容：先在「数据管理」导出，覆盖仓库里的 catalog.json，再更新部署。';
   }
 

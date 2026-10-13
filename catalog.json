@@ -1,6 +1,6 @@
 {
-  "version": 1791876446378,
-  "comment": "自动生成：数据来自 images/ 目录。店主可在 数据管理页 调整名称/分类/颜色/标签/尺码，导出后覆盖本文件。",
+  "version": 1791883496626,
+  "comment": "自动生成：数据来自 images/ 目录。店主可在 数据管理页 调整名称、风格、说明与卡片封面，导出后覆盖本文件。本应用不做销售呈现，条目只存名称 / 图片 / 说明 / 排序。",
   "categories": [
     {
       "id": "cat-id",
@@ -93,9 +93,6 @@
       "categoryId": "cat-person",
       "name": "主图_002",
       "image": "images/主图_002.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 1
     },
@@ -104,9 +101,6 @@
       "categoryId": "cat-person",
       "name": "主图_003",
       "image": "images/主图_003.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 2
     },
@@ -115,9 +109,6 @@
       "categoryId": "cat-person",
       "name": "主图_004",
       "image": "images/主图_004.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 3
     },
@@ -126,9 +117,6 @@
       "categoryId": "cat-person",
       "name": "主图_005",
       "image": "images/主图_005.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 4
     },
@@ -137,9 +125,6 @@
       "categoryId": "cat-person",
       "name": "主图_006",
       "image": "images/主图_006.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 5
     },
@@ -148,9 +133,6 @@
       "categoryId": "cat-person",
       "name": "主图_011",
       "image": "images/主图_011.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 6
     },
@@ -159,9 +141,6 @@
       "categoryId": "cat-person",
       "name": "其他_007",
       "image": "images/其他_007.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 7
     },
@@ -170,9 +149,6 @@
       "categoryId": "cat-person",
       "name": "其他_008",
       "image": "images/其他_008.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 8
     },
@@ -181,9 +157,6 @@
       "categoryId": "cat-person",
       "name": "缩略图_001",
       "image": "images/缩略图_001.jpg",
-      "sizes": [],
-      "colors": [],
-      "tags": [],
       "desc": "",
       "sort": 9
     }

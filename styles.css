@@ -42,8 +42,6 @@ img{display:block}
   background:var(--bg);
 }
 .screen.active{display:flex}
-/* 详情页盖住风格库（风格库 z-index:40）：从风格浏览进详情、返回后露出浏览层 */
-#detail.active{z-index:50}
 @media (min-width:560px){
   body{background:
     radial-gradient(60% 40% at 50% 0%, #1A1230 0%, transparent 70%),
@@ -120,30 +118,8 @@ img{display:block}
 .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .ph span{font-size:34px;font-weight:600;color:rgba(255,255,255,.32);letter-spacing:2px}
 
-/* ---------- 详情页 ---------- */
-.detail{animation:slideIn .28s cubic-bezier(.2,0,0,1)}
-@keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
-.detail-scroll{flex:1;overflow-y:auto;padding:0 20px calc(36px + var(--safe-b));scrollbar-width:none}
-.detail-scroll::-webkit-scrollbar{display:none}
-.detail-img{
-  position:relative;aspect-ratio:3 / 4;max-height:52vh;margin:0 auto;
-  border-radius:20px;overflow:hidden;background:var(--surface-2);
-  border:1px solid var(--outline);
-}
-.detail-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.detail-img img.img-err{display:none}
-.detail-name{margin-top:18px;font-size:21px;font-weight:700;line-height:1.3}
-.detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.meta-chip{
-  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);
-  background:var(--surface-2);border:1px solid var(--outline);
-  border-radius:999px;padding:5px 12px;
-}
-.meta-chip .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
-.meta-chip.tag{color:var(--primary-2);border-color:rgba(139,92,246,.35);background:rgba(139,92,246,.1)}
-.detail-desc{margin-top:14px;font-size:14px;color:var(--text-2);line-height:1.7;white-space:pre-wrap}
-
 /* ---------- 数据管理 ---------- */
+@keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 .data{animation:slideIn .28s cubic-bezier(.2,0,0,1)}
 .data-scroll{flex:1;overflow-y:auto;padding:0 16px calc(40px + var(--safe-b));scrollbar-width:none}
 .data-scroll::-webkit-scrollbar{display:none}
@@ -493,8 +469,8 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 }
 .sl-info{flex:1;min-width:0}
 .sl-name{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sl-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.sl-detail-btn{flex:0 0 auto;width:auto;padding:0 20px;height:46px}
+/* 仅一行文字：所属拍摄风格（+ 店主选填的一句说明）；不放任何商品规格 */
+.sl-meta{font-size:12.5px;color:var(--text-2);margin-top:6px;line-height:1.5}
 /* 单击图片进/出沉浸模式：隐藏顶栏、底栏与圆点 */
 .sl-chrome{transition:opacity .2s}
 .sl-browser.sl-immersive .sl-chrome{opacity:0;pointer-events:none}
@@ -502,45 +478,4 @@ body.mode-admin .iconbtn.sl-admin-only{display:flex}
 /* 系统降低动效时全部过渡直出 */
 @media (prefers-reduced-motion:reduce){
   .stylelib,.sl-browser,.sl-wall-track,.sl-track,.sl-chrome,.sl-dots{transition:none}
-}
-/* ---------- 快速预览页（preview.html，开发用） ---------- */
-/* 单图查看：整页一张，左右滑动 / 拖拽 / 方向键 / 箭头按钮切换 */
-.pv-stage{
-  flex:1;position:relative;overflow:hidden;
-  touch-action:none; /* 翻页手势完全交给 JS，禁止浏览器原生滚动手势 */
-  -webkit-user-select:none;user-select:none;
-}
-.pv-track{display:flex;height:100%;will-change:transform}
-.pv-track.pv-anim{transition:transform .28s cubic-bezier(.22,.61,.36,1)}
-.pv-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;padding:12px 12px 0}
-.pv-slide .pv-imgwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
-/* 原始比例自适应：max 双向约束 + width/height:auto，宽高比不变，不裁剪、不拉伸 */
-.pv-slide img{
-  max-width:100%;max-height:100%;width:auto;height:auto;display:block;
-  background:var(--surface-2);border-radius:12px;
-}
-.pv-slide figcaption{
-  flex:0 0 auto;text-align:center;
-  font-size:11.5px;color:var(--text-3);letter-spacing:.3px;
-  padding:10px 4px calc(10px + var(--safe-b));
-}
-/* 左右箭头按钮：复用 .iconbtn 基底，叠加快照风格定位 */
-.pv-nav{
-  position:absolute;top:50%;transform:translateY(-50%);
-  background:rgba(20,17,31,.82);backdrop-filter:blur(8px);opacity:.85;
-}
-.pv-nav:active{transform:translateY(-50%) scale(.9)}
-.pv-nav[disabled]{opacity:.25;pointer-events:none}
-.pv-prev{left:12px}
-.pv-next{right:12px}
-.pv-count{
-  flex:0 0 auto;font-size:13px;color:var(--text-2);
-  letter-spacing:1px;font-variant-numeric:tabular-nums;
-}
-.pv-bar{flex:0 0 auto;padding:10px 16px calc(14px + var(--safe-b));border-top:1px solid var(--outline)}
-.pv-note{font-size:12px;color:var(--text-3);line-height:1.7}
-.pv-note code{
-  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;
-  color:var(--primary-2);background:var(--surface-2);
-  border:1px solid var(--outline);border-radius:6px;padding:1px 6px;
 }

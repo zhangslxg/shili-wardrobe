@@ -65,6 +65,33 @@ check('index.html 含风格库 #stylelib', 'id="stylelib"' in html)
 check('app.js 启动即开风格库', 'openStyleLib();' in appjs and "showView('main')" not in appjs)
 check('店主专属控件类存在', 'sl-admin-only' in html and '.sl-admin-only' in css)
 
+# ---------- 3.5 去商品化：界面不得出现任何商品销售呈现 ----------
+# ① 商品详情屏与规格模块整块移除
+check('已移除服装详情屏 #detail', 'id="detail"' not in html and 'id="detail-name"' not in html)
+check('已移除详情页逻辑 openDetail', 'function openDetail' not in appjs)
+check('已移除「查看详情」按钮', 'sl-detail' not in html and 'sl-detail' not in appjs)
+check('已移除 meta-chip 规格胶囊', 'meta-chip' not in html and 'meta-chip' not in css)
+check('已移除商品规格渲染（colors/sizes/tags）',
+      'it.colors' not in appjs and 'it.sizes' not in appjs and 'it.tags' not in appjs)
+check('normalizeImport 不再收录商品规格字段',
+      not re.search(r'^\s*(sizes|colors|tags):', appjs, re.M))
+check('放大层只显示风格名 + 说明', "meta = cat ? cat.name : ''" in appjs)
+check('风格墙无「上架」类电商文案', '待上架' not in appjs and '上架' not in appjs)
+
+# ② 用户可见文案里不得出现销售词汇（注释与说明性否定句已剥离，只看真正会渲染出来的文本）
+BAN_WORDS = ['在售', '价格', '售价', '标价', '库存', '购买', '下单', '购物车', '结算',
+             '加购', '促销', '优惠', '折扣', '销量', '已售', '现货', '包邮', '发货',
+             '上架', '尺码', '商品', '元/件', '原价']
+scan_srcs = {
+    'index.html': re.sub(r'<!--.*?-->', '', html, flags=re.S),
+    'app.js': re.sub(r'//.*$', '', re.sub(r'/\*.*?\*/', '', appjs, flags=re.S), flags=re.M),
+    'styles.css': re.sub(r'/\*.*?\*/', '', css, flags=re.S),
+    'catalog.json': read('catalog.json'),
+}
+for fn2, src in scan_srcs.items():
+    hit = [w for w in BAN_WORDS if w in src]
+    check('销售词汇零残留: ' + fn2, not hit, str(hit))
+
 # ---------- 4. JS 引用的 #id 必须在 HTML 中存在 ----------
 html_ids = set(re.findall(r'id="([^"]+)"', html))
 ref_ids = set(re.findall(r"\$\('#([A-Za-z0-9_-]+)'\)", appjs))
@@ -105,7 +132,6 @@ for frag, name in [
     ("$('#cover-input')", '封面图片选择框'),
     ("$('#cover-pick')", '从本风格衣服里选封面'),
     ("c.cover", '风格墙读取自定义封面'),
-    ('function hideScreens', '收起所有 screen（露出风格库）'),
     ('SL_EDGE', '边缘手势常量'),
     ('SL_CLOSE_DY', '下滑返回常量'),
     ('SL_NAV_RATIO', '翻页阈值常量'),
@@ -117,7 +143,6 @@ for frag, name in [
     ("act === 'sl-close'", 'data-act: sl-close'),
     ("act === 'sl-back-wall'", 'data-act: sl-back-wall'),
     ("act === 'sl-back-grid'", 'data-act: sl-back-grid'),
-    ("act === 'sl-detail'", 'data-act: sl-detail'),
     ("act === 'preview-wall'", 'data-act: preview-wall'),
     ("act === 'style-create'", 'data-act: style-create'),
     ("act === 'style-add-inline'", 'data-act: style-add-inline'),
@@ -168,7 +193,9 @@ check('.sl-slide img 含 max-width/max-height/auto',
       and 'width:auto' in m.group(1) and 'height:auto' in m.group(1))
 
 # 已删除的旧样式不应残留
-for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter', '.sl-soon-card', '.style-row-num']:
+for dead in ['.cat-strip', '.cat-chip', '.pager{', '.page-hero', '.swipe-hint', '.home-enter',
+             '.sl-soon-card', '.style-row-num', '.detail-', '.meta-chip', '.sl-detail-btn',
+             '.pv-stage', '.pv-track', '.pv-slide', '.pv-nav', '.pv-bar', '.pv-note']:
     check('已清理死样式: ' + dead, dead not in css)
 
 # ---------- 7.5 品牌：石榴照相馆 ----------
@@ -197,6 +224,11 @@ imgrefs = [i['image'] for i in items if i.get('image')]
 for img in imgrefs:
     check('图片磁盘存在: ' + img, os.path.exists(os.path.join(APP, img.replace('/', os.sep))))
 check('图片引用无重复', len(imgrefs) == len(set(imgrefs)), 'n=%d' % len(imgrefs))
+# 条目字段收口：只允许 id / categoryId / name / image / desc / sort（无价格、库存、规格等商品字段）
+ALLOWED_ITEM_KEYS = {'id', 'categoryId', 'name', 'image', 'desc', 'sort'}
+for it in items:
+    extra = sorted(set(it.keys()) - ALLOWED_ITEM_KEYS)
+    check('条目无商品字段: ' + it.get('id', '?'), not extra, str(extra))
 
 # ---------- 9. 发布资产 ----------
 man = json.loads(read('manifest.webmanifest'))
@@ -205,7 +237,7 @@ for ic in [i['src'] for i in man.get('icons', [])]:
     check('manifest 图标磁盘存在: ' + ic,
           os.path.exists(os.path.join(APP, ic.lstrip('./').replace('/', os.sep))))
 sw = read('sw.js')
-check('sw 版本 v9', "var CACHE = 'wardrobe-v9';" in sw)
+check('sw 版本 v10', "var CACHE = 'wardrobe-v10';" in sw)
 # 预缓存清单里的每个文件都必须真实存在（否则 addAll 整体失败、一个都缓存不上）
 assets = re.search(r'var ASSETS = \[(.*?)\];', sw, re.S).group(1)
 for a in re.findall(r"'\./([^']*)'", assets):

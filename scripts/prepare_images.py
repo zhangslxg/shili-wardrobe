@@ -116,15 +116,13 @@ def main():
                 f'      "categoryId": "cat-default",\n'
                 f'      "name": "{stem}",\n'
                 f'      "image": "images/{os.path.basename(p)}",\n'
-                '      "sizes": [],\n'
-                '      "colors": [],\n'
-                '      "tags": [],\n'
-                f'      "desc": "",\n'
+                '      "desc": "",\n'
                 f'      "sort": {i}\n'
                 '    }'
             )
         print('  "items": [\n' + ",\n".join(items) + '\n  ]')
-        print('\n（别忘了在 categories 里加一个 "id": "cat-default" 的分类）')
+        print('\n（别忘了在 categories 里加一个 "id": "cat-default" 的风格；'
+              '本应用不设价格/库存/尺码/颜色/标签等商品字段）')
 
 
 if __name__ == "__main__":
